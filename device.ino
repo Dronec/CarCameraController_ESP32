@@ -14,8 +14,8 @@
 #define sensorThreshold 100
 #define frontCameraAutoThreshold 10000 // after the rear camera the front one turns on for 10s
 #define buttonPin 14
-#define buttonEmulatorPin 15 // Control B(5) pins 3,4
-#define frontCamera 13       // Control D(12) pins 10,11
+#define buttonEmulatorPin 15 // Control D(12) pins 10,11
+#define frontCamera 13       // Control B(5) pins 3,4 
 #define rearCamera 12        // Control A(13) pins 1,2
 #define analogInPin A0       // for detecting videosignal
 
