@@ -40,7 +40,7 @@ void setup()
   pinMode(rearCamera, OUTPUT);
 
   BackCameraOn();
-
+  delay(500); // wait to activate the display if present
   displayEnabled = display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
 }
 void Displaystats()
@@ -73,8 +73,8 @@ void Displaystats()
 }
 void FrontCameraOn()
 {
-  digitalWrite(frontCamera, ON);
   digitalWrite(rearCamera, OFF);
+  digitalWrite(frontCamera, ON);
   currentCamera = 0;
   delay(1000);
 }
