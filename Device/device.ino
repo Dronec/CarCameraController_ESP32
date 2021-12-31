@@ -7,6 +7,8 @@
 #include <ESP8266WiFi.h>
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
+#include "LittleFS.h"
+#include <Arduino_JSON.h>
 #include <AsyncElegantOTA.h>
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
@@ -27,11 +29,22 @@
 
 #define OLED_RESET -1 // Reset pin # (or -1 if sharing Arduino reset pin)
 
-const char *ssid = "SSID";
-const char *password = "PASSWORD";
-const char *softwareVersion = "1.2";
+// Set number of outputs
+#define NUM_OUTPUTS 3
+
+const char *ssid = "ssid";
+const char *password = "password";
+const char *softwareVersion = "1.303";
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+// Create AsyncWebServer object on port 80
 AsyncWebServer server(80);
+
+// Create a WebSocket object
+AsyncWebSocket ws("/ws");
+
+// Assign each GPIO to an output
+int outputGPIOs[NUM_OUTPUTS] = {frontCamera, rearCamera, buttonEmulatorPin};
 
 unsigned long buttonTimer = 0;          // the last time the output pin was toggled
 unsigned long frontCameraAutoTimer = 0; // the last time the output pin was toggled
@@ -44,8 +57,130 @@ int currentCamera = 1; // 1 - rear, 0 - front;
 bool displayEnabled = false;
 bool WifiStatus = false;
 
+// Initialize LittleFS
+void initLittleFS()
+{
+  if (!LittleFS.begin())
+  {
+    Serial.println("An error has occurred while mounting LittleFS");
+  }
+  Serial.println("LittleFS mounted successfully");
+}
+
+void FrontCameraOn(bool nodelay = false)
+{
+  digitalWrite(rearCamera, OFF);
+  digitalWrite(frontCamera, ON);
+  currentCamera = 0;
+  if (!nodelay)
+    delay(1000);
+}
+void BackCameraOn()
+{
+  digitalWrite(frontCamera, OFF);
+  digitalWrite(rearCamera, ON);
+  currentCamera = 1;
+  frontCameraAutoTimer = 0;
+}
+void ToggleCamera(bool nodelay = false)
+{
+  if (currentCamera == 1)
+    FrontCameraOn(nodelay);
+  else
+    BackCameraOn();
+}
+void ClickExternalButton()
+{
+  digitalWrite(buttonEmulatorPin, HIGH);
+  delay(250);
+  digitalWrite(buttonEmulatorPin, LOW);
+}
+
+String getOutputStates()
+{
+  JSONVar myArray;
+  myArray["ssid"] = ssid;
+  myArray["version"] = softwareVersion;
+  myArray["sensor"] = videoSensor;
+  if (currentCamera == 1)
+    myArray["camera"] = "rear";
+  else
+  {
+    if (frontCameraAutoTimer > 0)
+      myArray["camera"] = "auto front";
+    else
+      myArray["camera"] = "front";
+  }
+  myArray["button"] = clickLength;
+
+  if (clickType == 1)
+    myArray["press"] = "short";
+  else
+    myArray["press"] = "long";
+
+  myArray["lc"] = loopCounter;
+
+  String jsonString = JSON.stringify(myArray);
+  return jsonString;
+}
+
+void notifyClients(String state)
+{
+  ws.textAll(state);
+}
+
+void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
+{
+  AwsFrameInfo *info = (AwsFrameInfo *)arg;
+  if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT)
+  {
+    data[len] = 0;
+    if (strcmp((char *)data, "states") == 0)
+    {
+      notifyClients(getOutputStates());
+    }
+    else
+    {
+      int gpio = atoi((char *)data);
+      if (gpio == 0)
+        ToggleCamera(true);
+      else
+        digitalWrite(gpio, !digitalRead(gpio));
+      notifyClients(getOutputStates());
+    }
+  }
+}
+
+void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type,
+             void *arg, uint8_t *data, size_t len)
+{
+  switch (type)
+  {
+  case WS_EVT_CONNECT:
+    Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
+    break;
+  case WS_EVT_DISCONNECT:
+    Serial.printf("WebSocket client #%u disconnected\n", client->id());
+    break;
+  case WS_EVT_DATA:
+    handleWebSocketMessage(arg, data, len);
+    break;
+  case WS_EVT_PONG:
+  case WS_EVT_ERROR:
+    break;
+  }
+}
+
+void initWebSocket()
+{
+  ws.onEvent(onEvent);
+  server.addHandler(&ws);
+}
+
 void setup()
 {
+  Serial.begin(115200);
+
   pinMode(buttonPin, INPUT);
 
   pinMode(buttonEmulatorPin, OUTPUT);
@@ -57,9 +192,20 @@ void setup()
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
 
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(200, "text/plain", "Hi! I am ESP8266.");
-  });
+  initLittleFS();
+  initWebSocket();
+
+  // Route for root / web page
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
+            { request->send(LittleFS, "/index.html", "text/html", false); });
+
+  server.serveStatic("/", LittleFS, "/");
+
+  // Start ElegantOTA
+  AsyncElegantOTA.begin(&server);
+
+  // Start server
+  server.begin();
 }
 void Displaystats()
 {
@@ -74,7 +220,7 @@ void Displaystats()
   else
     display.println("No connection");
 
-  display.print("Software version: ");
+  display.print("Version: ");
   display.println(softwareVersion);
 
   display.print("VideoSensor: ");
@@ -104,27 +250,7 @@ void Displaystats()
 
   display.display();
 }
-void FrontCameraOn()
-{
-  digitalWrite(rearCamera, OFF);
-  digitalWrite(frontCamera, ON);
-  currentCamera = 0;
-  delay(1000);
-}
-void BackCameraOn()
-{
-  digitalWrite(frontCamera, OFF);
-  digitalWrite(rearCamera, ON);
-  currentCamera = 1;
-  frontCameraAutoTimer = 0;
-}
-void ToggleCamera()
-{
-  if (currentCamera == 1)
-    FrontCameraOn();
-  else
-    BackCameraOn();
-}
+
 void loop()
 {
   videoSensor = 0;
@@ -162,9 +288,7 @@ void loop()
     {
       clickType = 2;
       clickLength = millis() - buttonTimer;
-      digitalWrite(buttonEmulatorPin, HIGH);
-      delay(250);
-      digitalWrite(buttonEmulatorPin, LOW);
+      ClickExternalButton();
     }
     else
     {
@@ -179,24 +303,23 @@ void loop()
       delay(50);
     };
   }
-  // Enable server if WiFi is on
-  if (WiFi.status() == WL_CONNECTED && WifiStatus == false)
-  {
-    AsyncElegantOTA.begin(&server);    // Start ElegantOTA
-    server.begin();
-    WifiStatus = true;
-  }
 
-  // Disable server if WiFi is off
+  if (WiFi.status() == WL_CONNECTED && WifiStatus == false)
+    WifiStatus = true;
+
   if (WiFi.status() != WL_CONNECTED && WifiStatus == true)
-  {
-    AsyncElegantOTA.begin(&server);    // Start ElegantOTA
-    server.end();
     WifiStatus = false;
+
+  ws.cleanupClients();
+
+  if (loopCounter % 10 == 0)
+  {
+    if (!displayEnabled)
+      displayEnabled = display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
+    notifyClients(getOutputStates());
   }
-  if (!displayEnabled && loopCounter % 10 == 0)
-    displayEnabled = display.begin(SSD1306_SWITCHCAPVCC, 0x3C); 
   if (displayEnabled)
     Displaystats();
+
   loopCounter++;
 }

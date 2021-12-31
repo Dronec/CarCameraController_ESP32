@@ -1,0 +1,46 @@
+<!DOCTYPE HTML><html>
+<head>
+  <title>Car camera controller</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" type="text/css" href="style.css">
+  <link rel="icon"  type="image/png" href="favicon.png">
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+</head>
+<body>
+  <div class="topnav">
+    <h1>Car camera controller - test outputs</h1>
+  </div>
+  <div class="content">
+    <div class="card-grid">
+        <div class="card">             
+            <p class="card-title">Toggle camera</p>
+            <label class="switch">
+                <input type="checkbox" onchange="toggleCheckbox(this)" id="0">
+                <span class="slider"></span>
+            </label>
+        </div>
+        <div class="card">
+            <p class="card-title">Button Emulator (GPIO 15)</p>
+            <label class="switch">
+                <input type="checkbox" onchange="toggleCheckbox(this)" id="15">
+                <span class="slider"></span>
+            </label>
+        </div>
+        <div class="card">
+            <p class="card-title">Stats:</p>
+            <p class ="state">Wifi: <span id="ssid"></span></p>
+            <p class ="state">Version: <span id="version"></span></p>
+            <p class ="state">Video sensor: <span id="sensor"></span></p>
+            <p class ="state">Current camera: <span id="currentcamera"></span></p>
+            <p class ="state">Press length: <span id="button"></span></p>
+            <p class ="state">Press type: <span id="press"></span></p>
+            <p class ="state">Loop count: <span id="lc"></span></p>
+            <p class ="state">Uptime, s: <span id="uptime"></span></p>
+        </div>
+    </div>
+</div>
+<script src="/script.js"></script>
+</body>
+</html>
+
+
