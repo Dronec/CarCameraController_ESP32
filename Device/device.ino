@@ -67,13 +67,11 @@ void initLittleFS()
   Serial.println("LittleFS mounted successfully");
 }
 
-void FrontCameraOn(bool nodelay = false)
+void FrontCameraOn()
 {
   digitalWrite(rearCamera, OFF);
   digitalWrite(frontCamera, ON);
   currentCamera = 0;
-  if (!nodelay)
-    delay(1000);
 }
 void BackCameraOn()
 {
@@ -82,10 +80,10 @@ void BackCameraOn()
   currentCamera = 1;
   frontCameraAutoTimer = 0;
 }
-void ToggleCamera(bool nodelay = false)
+void ToggleCamera()
 {
   if (currentCamera == 1)
-    FrontCameraOn(nodelay);
+    FrontCameraOn();
   else
     BackCameraOn();
 }
@@ -143,7 +141,7 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
     {
       int gpio = atoi((char *)data);
       if (gpio == 0)
-        ToggleCamera(true);
+        ToggleCamera();
       else
         digitalWrite(gpio, !digitalRead(gpio));
       notifyClients(getOutputStates());
@@ -261,7 +259,7 @@ void loop()
   }
   videoSensor = videoSensor / 10;
   // Condition 1: rear camera activated
-  if (videoSensor > sensorThreshold)
+  if (videoSensor > sensorThreshold && currentCamera == 0)
   {
     BackCameraOn();
     frontCameraAutoTimer = millis();
