@@ -220,11 +220,9 @@ void Displaystats()
   else
     display.println("No connection");
 
-  display.print("Version: ");
-  display.println(softwareVersion);
+  display.printf("Version: %s\n", softwareVersion);
 
-  display.print("VideoSensor: ");
-  display.println(videoSensor);
+  display.printf("VideoSensor: %d\n", videoSensor);
 
   display.print("Camera: ");
   if (currentCamera == 1)
@@ -236,18 +234,16 @@ void Displaystats()
     display.println("front");
   }
 
-  display.print("Button: ");
-  display.println(clickLength);
+  display.printf("Click: %d\n", clickLength);
 
-  display.print("Press type: ");
+  display.print("Click type: ");
   if (clickType == 1)
     display.println("short");
   else
     display.println("long");
 
-  display.print("LC: ");
-  display.print(loopCounter);
-
+  display.printf("LC: %d\n", loopCounter);
+  display.printf("RAM: %d\n", ESP.getFreeHeap());
   display.display();
 }
 
@@ -261,7 +257,7 @@ void loop()
   }
   videoSensor = videoSensor / 10;
   // Condition 1: rear camera activated
-  if (videoSensor > sensorThreshold && currentCamera == 0)
+  if (videoSensor > sensorThreshold)
   {
     BackCameraOn();
     frontCameraAutoTimer = millis();
@@ -278,7 +274,7 @@ void loop()
 
   if (digitalRead(buttonPin) == ON)
   {
-    // Serial.println("Button pressed!");
+
     buttonTimer = millis();
     while (millis() - buttonTimer < longClick && digitalRead(buttonPin) == ON)
     {
@@ -316,7 +312,8 @@ void loop()
   {
     if (!displayEnabled)
       displayEnabled = display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
-    notifyClients(getOutputStates());
+    if (WifiStatus)
+      notifyClients(getOutputStates());
   }
   if (displayEnabled)
     Displaystats();
