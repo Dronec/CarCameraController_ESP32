@@ -11,6 +11,8 @@
 #include <Arduino_JSON.h>
 #include <AsyncElegantOTA.h>
 
+#include <DefsWiFi.h>
+
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 
@@ -32,8 +34,8 @@
 // Set number of outputs
 #define NUM_OUTPUTS 3
 
-const char *ssid = "ssid";
-const char *password = "password";
+const char *ssid = WIFISSID_M;
+const char *password = WIFIPASS_M;
 const char *softwareVersion = "1.303";
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
