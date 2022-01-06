@@ -115,7 +115,8 @@ String getOutputStates()
   else
     myArray["press"] = "long";
 
-  myArray["lc"] = loopCounter;
+  myArray["uptime"] = millis()/1000;
+  myArray["ram"] = (int)ESP.getFreeHeap();
 
   String jsonString = JSON.stringify(myArray);
   return jsonString;
@@ -132,19 +133,12 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
   if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT)
   {
     data[len] = 0;
-    if (strcmp((char *)data, "states") == 0)
-    {
-      notifyClients(getOutputStates());
-    }
+    int gpio = atoi((char *)data);
+    if (gpio == 0)
+      ToggleCamera();
     else
-    {
-      int gpio = atoi((char *)data);
-      if (gpio == 0)
-        ToggleCamera();
-      else
-        digitalWrite(gpio, !digitalRead(gpio));
-      notifyClients(getOutputStates());
-    }
+      digitalWrite(gpio, !digitalRead(gpio));
+    notifyClients(getOutputStates());
   }
 }
 
@@ -239,7 +233,7 @@ void Displaystats()
   else
     display.println("long");
 
-  display.printf("LC: %d\n", loopCounter);
+  display.printf("Uptime: %ds\n", millis()/1000);
   display.printf("RAM: %d\n", ESP.getFreeHeap());
   display.display();
 }

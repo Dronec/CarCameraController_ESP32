@@ -16,7 +16,6 @@ function initWebSocket() {
 
 function onOpen(event) {
     console.log('Connection opened');
-    websocket.send("states");
 }
 
 function onClose(event) {
@@ -33,8 +32,8 @@ function onMessage(event) {
     document.getElementById("sensor").innerHTML = myObj["sensor"];
     document.getElementById("button").innerHTML = myObj["button"];
     document.getElementById("press").innerHTML = myObj["press"];
-    document.getElementById("lc").innerHTML = myObj["lc"];
-    document.getElementById("uptime").innerHTML = myObj["lc"]/5;
+    document.getElementById("ram").innerHTML = myObj["ram"];
+    document.getElementById("uptime").innerHTML = myObj["uptime"];
     if (myObj["camera"] == "rear")
         document.getElementById("0").checked = false;
     else
