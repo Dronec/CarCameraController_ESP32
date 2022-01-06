@@ -45,9 +45,6 @@ AsyncWebServer server(80);
 // Create a WebSocket object
 AsyncWebSocket ws("/ws");
 
-// Assign each GPIO to an output
-int outputGPIOs[NUM_OUTPUTS] = {frontCamera, rearCamera, buttonEmulatorPin};
-
 unsigned long buttonTimer = 0;          // the last time the output pin was toggled
 unsigned long frontCameraAutoTimer = 0; // the last time the output pin was toggled
 unsigned long loopCounter = 0;
