@@ -4,10 +4,10 @@
 #include <Adafruit_SSD1306.h>
 
 #include <Arduino.h>
-#include <ESP8266WiFi.h>
-#include <ESPAsyncTCP.h>
+#include <WiFi.h>
+#include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
-#include "LittleFS.h"
+#include "SPIFFS.h"
 #include <Arduino_JSON.h>
 #include <AsyncElegantOTA.h>
 
@@ -34,9 +34,9 @@
 // Set number of outputs
 #define NUM_OUTPUTS 3
 
-const char *ssid = WIFISSID_M;
-const char *password = WIFIPASS_M;
-const char *softwareVersion = "1.303";
+const char *ssid = WIFISSID_2;
+const char *password = WIFIPASS_2;
+const char *softwareVersion = "0.001";
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 // Create AsyncWebServer object on port 80
@@ -57,13 +57,11 @@ bool displayEnabled = false;
 bool WifiStatus = false;
 
 // Initialize LittleFS
-void initLittleFS()
-{
-  if (!LittleFS.begin())
-  {
-    Serial.println("An error has occurred while mounting LittleFS");
+void initSPIFFS() {
+  if (!SPIFFS.begin(true)) {
+    Serial.println("An error has occurred while mounting SPIFFS");
   }
-  Serial.println("LittleFS mounted successfully");
+  Serial.println("SPIFFS mounted successfully");
 }
 
 void FrontCameraOn()
@@ -183,14 +181,14 @@ void setup()
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
 
-  initLittleFS();
+  initSPIFFS();
   initWebSocket();
 
   // Route for root / web page
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-            { request->send(LittleFS, "/index.html", "text/html", false); });
+            { request->send(SPIFFS, "/index.html", "text/html", false); });
 
-  server.serveStatic("/", LittleFS, "/");
+  server.serveStatic("/", SPIFFS, "/");
 
   // Start ElegantOTA
   AsyncElegantOTA.begin(&server);
