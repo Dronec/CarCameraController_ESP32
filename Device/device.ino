@@ -1,7 +1,4 @@
-#include <SPI.h>
-#include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
+#include <ESP_8_BIT_GFX.h>
 
 #include <Arduino.h>
 #include <WiFi.h>
@@ -12,9 +9,6 @@
 #include <AsyncElegantOTA.h>
 
 #include <DefsWiFi.h>
-
-#define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define SCREEN_HEIGHT 64 // OLED display height, in pixels
 
 // Camera controller
 #define ON HIGH
@@ -29,15 +23,13 @@
 #define rearCamera 12        // Control A(13) pins 1,2
 #define analogInPin A0       // for detecting videosignal
 
-#define OLED_RESET -1 // Reset pin # (or -1 if sharing Arduino reset pin)
-
-// Set number of outputs
-#define NUM_OUTPUTS 3
 
 const char *ssid = WIFISSID_2;
 const char *password = WIFIPASS_2;
 const char *softwareVersion = "0.001";
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+// Analog display
+ESP_8_BIT_GFX videoOut(true /* = NTSC */, 8 /* = RGB332 color */);
 
 // Create AsyncWebServer object on port 80
 AsyncWebServer server(80);
@@ -170,6 +162,8 @@ void setup()
 {
   Serial.begin(115200);
 
+  videoOut.begin();
+
   pinMode(buttonPin, INPUT);
 
   pinMode(buttonEmulatorPin, OUTPUT);
@@ -198,42 +192,45 @@ void setup()
 }
 void Displaystats()
 {
-  display.clearDisplay();
-  display.setCursor(0, 0);
-  display.setTextColor(SSD1306_WHITE);
-  display.setTextSize(1);
-
-  display.print("Wifi: ");
+  videoOut.waitForFrame();
+  videoOut.fillScreen(0);
+  videoOut.drawRect(0, 0, 320, 47, 0xF4);
+  videoOut.fillRect(0, 0, 320, 47, 0xF4);
+  videoOut.setCursor(0, 16);
+  videoOut.setTextColor(0x00);
+  videoOut.setTextSize(2);
+  videoOut.print(" Wifi: ");
   if (WifiStatus)
-    display.println(WiFi.localIP());
+    videoOut.println(WiFi.localIP());
   else
-    display.println("No connection");
+    videoOut.println("No connection");
 
-  display.printf("Version: %s\n", softwareVersion);
+  videoOut.printf(" Version: %s\n", softwareVersion);
 
-  display.printf("VideoSensor: %d\n", videoSensor);
+  videoOut.setTextColor(0xFF);
 
-  display.print("Camera: ");
+  videoOut.printf(" VideoSensor: %d\n", videoSensor);
+
+  videoOut.print(" Camera: ");
   if (currentCamera == 1)
-    display.println("rear");
+    videoOut.println("rear");
   else
   {
     if (frontCameraAutoTimer > 0)
-      display.print("auto ");
-    display.println("front");
+      videoOut.print("auto ");
+    videoOut.println("front");
   }
 
-  display.printf("Click: %d\n", clickLength);
+  videoOut.printf(" Click: %d\n", clickLength);
 
-  display.print("Click type: ");
+  videoOut.print(" Click type: ");
   if (clickType == 1)
-    display.println("short");
+    videoOut.println("short");
   else
-    display.println("long");
+    videoOut.println("long");
 
-  display.printf("Uptime: %ds\n", millis()/1000);
-  display.printf("RAM: %d\n", ESP.getFreeHeap());
-  display.display();
+  videoOut.printf(" Uptime: %ds\n", millis()/1000);
+  videoOut.printf(" RAM: %d\n", ESP.getFreeHeap());
 }
 
 void loop()
@@ -299,12 +296,10 @@ void loop()
 
   if (loopCounter % 10 == 0)
   {
-    if (!displayEnabled)
-      displayEnabled = display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
     if (WifiStatus)
       notifyClients(getOutputStates());
   }
-  if (displayEnabled)
+  //if (displayEnabled)
     Displaystats();
 
   loopCounter++;
