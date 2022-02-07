@@ -13,12 +13,10 @@
   <div class="content">
     <div class="card-grid">
         <div class="card">             
-            <p class="card-title">Toggle camera</p>
-            <label class="switch">
-                <input type="checkbox" onchange="toggleCheckbox(this)" id="0">
-                <span class="slider"></span>
-            </label>
+            <p class="card-title"># of channel</p>
+                <input type="number" id="channel" min="0" max="7" onchange="enterNumber(this)" value="0">
         </div>
+        <!--
         <div class="card">
             <p class="card-title">Button Emulator (GPIO 15)</p>
             <label class="switch">
@@ -26,6 +24,7 @@
                 <span class="slider"></span>
             </label>
         </div>
+        -->
         <div class="card">
             <p class="card-title">Stats:</p>
             <p class ="state">Wifi: <span id="ssid"></span></p>

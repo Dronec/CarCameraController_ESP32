@@ -34,10 +34,10 @@ function onMessage(event) {
     document.getElementById("press").innerHTML = myObj["press"];
     document.getElementById("ram").innerHTML = myObj["ram"];
     document.getElementById("uptime").innerHTML = myObj["uptime"];
-    if (myObj["camera"] == "rear")
-        document.getElementById("0").checked = false;
-    else
-        document.getElementById("0").checked = true;
+    //if (myObj["camera"] == "rear")
+    //    document.getElementById("0").checked = false;
+    //else
+    //    document.getElementById("0").checked = true;
     console.log(event.data);
 }
 
@@ -45,6 +45,16 @@ function onMessage(event) {
 function toggleCheckbox(element) {
     console.log(element.id);
     websocket.send(element.id);
+    /*if (element.checked){
+        document.getElementById(element.id+"s").innerHTML = "ON";
+    }
+    else {
+        document.getElementById(element.id+"s").innerHTML = "OFF"; 
+    }*/
+}
+function enterNumber(element) {
+    console.log(element.value);
+    websocket.send(element.value);
     /*if (element.checked){
         document.getElementById(element.id+"s").innerHTML = "ON";
     }

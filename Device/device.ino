@@ -23,10 +23,15 @@
 #define rearCamera 12        // Control A(13) pins 1,2
 #define analogInPin A0       // for detecting videosignal
 
+#define pinA 23
+#define pinB 22
+#define pinC 15
 
 const char *ssid = WIFISSID_2;
 const char *password = WIFIPASS_2;
 const char *softwareVersion = "0.001";
+
+const int pinList[] = {pinA, pinB, pinC};
 
 // Analog display
 ESP_8_BIT_GFX videoOut(true /* = NTSC */, 8 /* = RGB332 color */);
@@ -83,6 +88,20 @@ void ClickExternalButton()
   digitalWrite(buttonEmulatorPin, LOW);
 }
 
+void ChannelToPin(uint channel)
+{
+for (int inputPin = 0; inputPin < 3; inputPin++)
+{
+int pinState = bitRead(channel, inputPin);
+// turn the pin on or off:
+digitalWrite(pinList[inputPin],pinState);
+
+Serial.printf("Pin: %d State: %d\n",pinList[inputPin],pinState);
+}
+
+  Serial.printf("Channel: %d\n", channel);
+}
+
 String getOutputStates()
 {
   JSONVar myArray;
@@ -123,11 +142,8 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
   if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT)
   {
     data[len] = 0;
-    int gpio = atoi((char *)data);
-    if (gpio == 0)
-      ToggleCamera();
-    else
-      digitalWrite(gpio, !digitalRead(gpio));
+    int channel = atoi((char *)data);
+    ChannelToPin(channel);
     notifyClients(getOutputStates());
   }
 }
@@ -169,6 +185,15 @@ void setup()
   pinMode(buttonEmulatorPin, OUTPUT);
   pinMode(frontCamera, OUTPUT);
   pinMode(rearCamera, OUTPUT);
+
+  pinMode(pinA, OUTPUT);
+  pinMode(pinB, OUTPUT);
+  pinMode(pinC, OUTPUT);
+  pinMode(33, OUTPUT);
+  digitalWrite(33,HIGH);
+  digitalWrite(pinA,LOW);
+  digitalWrite(pinB,LOW);
+  digitalWrite(pinC,LOW);
 
   BackCameraOn();
 
@@ -235,6 +260,7 @@ void Displaystats()
 
 void loop()
 {
+  /*
   videoSensor = 0;
   for (int i = 0; i < 20; i++)
   {
@@ -285,7 +311,7 @@ void loop()
       delay(50);
     };
   }
-
+*/
   if (WiFi.status() == WL_CONNECTED && WifiStatus == false)
     WifiStatus = true;
 
@@ -303,4 +329,5 @@ void loop()
     Displaystats();
 
   loopCounter++;
+  delay(200);
 }
