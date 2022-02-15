@@ -13,8 +13,8 @@
   <div class="content">
     <div class="card-grid">
         <div class="card">             
-            <p class="card-title"># of channel</p>
-                <input type="number" id="channel" min="0" max="7" onchange="enterNumber(this)" value="0">
+            <p class="card-title"># of camera</p>
+                <input type="number" id="camera" min="1" max="4" onchange="enterNumber(this)" value="3">
         </div>
         <!--
         <div class="card">
@@ -29,10 +29,9 @@
             <p class="card-title">Stats:</p>
             <p class ="state">Wifi: <span id="ssid"></span></p>
             <p class ="state">Version: <span id="version"></span></p>
-            <p class ="state">Video sensor: <span id="sensor"></span></p>
+            <p class ="state">Rear cam sensor: <span id="rearsensor"></span></p>
+            <p class ="state">Rack cam sensor: <span id="racksensor"></span></p>
             <p class ="state">Current camera: <span id="currentcamera"></span></p>
-            <p class ="state">Press length: <span id="button"></span></p>
-            <p class ="state">Press type: <span id="press"></span></p>
             <p class ="state">Free RAM: <span id="ram"></span></p>
             <p class ="state">Uptime, s: <span id="uptime"></span></p>
         </div>

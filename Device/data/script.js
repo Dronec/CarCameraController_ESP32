@@ -29,9 +29,8 @@ function onMessage(event) {
     document.getElementById("currentcamera").innerHTML = myObj["camera"];
     document.getElementById("ssid").innerHTML = myObj["ssid"];
     document.getElementById("version").innerHTML = myObj["version"];
-    document.getElementById("sensor").innerHTML = myObj["sensor"];
-    document.getElementById("button").innerHTML = myObj["button"];
-    document.getElementById("press").innerHTML = myObj["press"];
+    document.getElementById("rearsensor").innerHTML = myObj["rearsensor"];
+    document.getElementById("racksensor").innerHTML = myObj["racksensor"];
     document.getElementById("ram").innerHTML = myObj["ram"];
     document.getElementById("uptime").innerHTML = myObj["uptime"];
     //if (myObj["camera"] == "rear")
