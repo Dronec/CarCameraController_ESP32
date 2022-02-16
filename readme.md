@@ -1,6 +1,6 @@
 # Car camera controller
 
-This is a source code for a simple MCU based on ESP32 and IC CD4051. It manages switching between 8 video inputs (front, reverse parking cameras, and whatever else you please) and a single output (the car's headunit) and intercepts CAN communications within your car's CAN network.
+This is a source code for a simple MCU based on ESP32 and IC CD4066. It manages switching between 4 video inputs (front, reverse, trailer parking cameras, and internal diagnostic display) and a single output (the car's headunit) and intercepts CAN communications within your car's CAN network.
 
 ## Installation
 
