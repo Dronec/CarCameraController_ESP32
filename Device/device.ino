@@ -73,7 +73,7 @@ void FrontCameraOn()
 }
 void BackCameraOn()
 {
-  if (rackCameraSensor > sensorThreshold)
+  if (videoSensorRack > sensorThreshold && videoSensorRear > sensorThreshold)
   {
     EnableCamera(rackCamera);
     currentCamera = rackCamera;
