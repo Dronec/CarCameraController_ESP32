@@ -30,7 +30,7 @@ function onMessage(event) {
     document.getElementById("ssid").innerHTML = myObj["ssid"];
     document.getElementById("version").innerHTML = myObj["version"];
     document.getElementById("rearsensor").innerHTML = myObj["rearsensor"];
-    document.getElementById("racksensor").innerHTML = myObj["racksensor"];
+    document.getElementById("trailsensor").innerHTML = myObj["trailsensor"];
     document.getElementById("ram").innerHTML = myObj["ram"];
     document.getElementById("uptime").innerHTML = myObj["uptime"];
     //if (myObj["camera"] == "rear")

@@ -15,10 +15,11 @@
 #define OFF LOW
 
 #define longClick 1500 // long button click 1.5s
-#define sensorThreshold 200
+#define sensorThresholdMin 100
+#define sensorThresholdMax 2000
 #define frontCameraAutoThreshold 10000 // after the rear camera the front one turns on for 10s
 #define rearCameraSensor 36            // for detecting videosignal
-#define rackCameraSensor 39            // for detecting videosignal
+#define trailCameraSensor 39           // for detecting videosignal
 
 #define pinA 23 // 13, controls 1-2
 #define pinB 15 // 5, controls 3-4
@@ -28,11 +29,14 @@
 #define rearCamera 1
 #define frontCamera 2
 #define intCamera 3
-#define rackCamera 4
+#define trailCamera 4
 
 const char *ssid = WIFISSID_2;
 const char *password = WIFIPASS_2;
-const char *softwareVersion = "0.001";
+const char *softwareVersion = "0.002";
+
+const char *camnames[4] = {"Rear", "Front",
+                           "Internal", "Trailer"};
 
 // Analog display
 ESP_8_BIT_GFX videoOut(true /* = NTSC */, 8 /* = RGB332 color */);
@@ -43,16 +47,22 @@ AsyncWebServer server(80);
 // Create a WebSocket object
 AsyncWebSocket ws("/ws");
 
-unsigned long buttonTimer = 0;          // the last time the output pin was toggled
+unsigned long sync = 0;                 // the last time the output pin was toggled
 unsigned long frontCameraAutoTimer = 0; // the last time the output pin was toggled
-unsigned long loopCounter = 0;
 
 int clickType = 0;
 int clickLength = 0;
-int videoSensorRear = 0;
-int videoSensorRack = 0;
+bool rearCamActive = false;
+bool trailCamActive = false;
 
-int currentCamera = 3; // 1 - rear, 2 - front, 3 - internal, 4 - rack;
+int v1min = 0;
+int v1max = 0;
+int v1cur = 0;
+int v2min = 0;
+int v2max = 0;
+int v2cur = 0;
+
+int currentCamera = 3; // 1 - rear, 2 - front, 3 - internal, 4 - trailer;
 
 bool WifiStatus = false;
 
@@ -73,10 +83,10 @@ void FrontCameraOn()
 }
 void BackCameraOn()
 {
-  if (videoSensorRack > sensorThreshold && videoSensorRear > sensorThreshold)
+  if (rearCamActive && trailCamActive)
   {
-    EnableCamera(rackCamera);
-    currentCamera = rackCamera;
+    EnableCamera(trailCamera);
+    currentCamera = trailCamera;
   }
   else
   {
@@ -98,25 +108,25 @@ void EnableCamera(uint cameraN)
 {
   switch (cameraN)
   {
-  case 1:
+  case rearCamera:
     digitalWrite(pinB, LOW);
     digitalWrite(pinC, LOW);
     digitalWrite(pinD, LOW);
     digitalWrite(pinA, HIGH);
     break;
-  case 2:
+  case frontCamera:
     digitalWrite(pinA, LOW);
     digitalWrite(pinC, LOW);
     digitalWrite(pinD, LOW);
     digitalWrite(pinB, HIGH);
     break;
-  case 3:
+  case intCamera:
     digitalWrite(pinA, LOW);
     digitalWrite(pinB, LOW);
     digitalWrite(pinD, LOW);
     digitalWrite(pinC, HIGH);
     break;
-  case 4:
+  case trailCamera:
     digitalWrite(pinA, LOW);
     digitalWrite(pinB, LOW);
     digitalWrite(pinC, LOW);
@@ -136,9 +146,9 @@ String getOutputStates()
   JSONVar myArray;
   myArray["ssid"] = ssid;
   myArray["version"] = softwareVersion;
-  myArray["rearsensor"] = videoSensorRear;
-  myArray["racksensor"] = videoSensorRack;
-  myArray["camera"] = currentCamera;
+  myArray["rearsensor"] = rearCamActive;
+  myArray["trailsensor"] = trailCamActive;
+  myArray["camera"] = camnames[currentCamera - 1];
 
   myArray["uptime"] = millis() / 1000;
   myArray["ram"] = (int)ESP.getFreeHeap();
@@ -240,9 +250,22 @@ void Displaystats()
 
   videoOut.setTextColor(0xFF);
 
-  videoOut.printf(" Rear Sensor: %d\n", videoSensorRear);
-  videoOut.printf(" Rack Sensor: %d\n", videoSensorRack);
+  videoOut.print(" Rear cam: ");
+  if (rearCamActive)
+    videoOut.println("on");
+  else
+    videoOut.println("off");
+  videoOut.print(" Trailer cam: ");
 
+  if (trailCamActive)
+    videoOut.println("on");
+  else
+    videoOut.println("off");
+
+  videoOut.printf(" R: %d-%d,%d\n", v1min, v1max, v1max - v1min);
+  videoOut.printf(" T: %d-%d,%d\n", v2min, v2max, v2max - v2min);
+
+  // Serial.printf("%d,%d\n",vmarker1,vmarker2);
   videoOut.printf(" Camera: %d\n", currentCamera);
 
   videoOut.printf(" Uptime: %ds\n", millis() / 1000);
@@ -251,26 +274,40 @@ void Displaystats()
 
 void loop()
 {
-
-  videoSensorRear = 0;
-  videoSensorRack = 0;
-  for (int i = 0; i < 20; i++)
+  v1min = 4095;
+  v1max = 0;
+  v2min = 4095;
+  v2max = 0;
+  sync = millis();
+  while (sync + 1000 > millis())
   {
-    videoSensorRear = videoSensorRear + analogRead(rearCameraSensor);
-    videoSensorRack = videoSensorRack + analogRead(rackCameraSensor);
+    v1cur = analogRead(rearCameraSensor);
     delay(10);
+    v2cur = analogRead(trailCameraSensor);
+    if (v1min > v1cur)
+      v1min = v1cur;
+
+    if (v1max < v1cur)
+      v1max = v1cur;
+
+    if (v2min > v2cur)
+      v2min = v2cur;
+
+    if (v2max < v2cur)
+      v2max = v2cur;
   }
-  videoSensorRear = videoSensorRear / 20;
-  videoSensorRack = videoSensorRack / 20;
+
+  rearCamActive = v1max - v1min > sensorThresholdMin && v1max - v1min < sensorThresholdMax;
+  trailCamActive = v2max - v2min > sensorThresholdMin && v2max - v2min < sensorThresholdMax;
 
   // Condition 1: rear camera activated
-  if (videoSensorRear > sensorThreshold)
+  if (rearCamActive)
   {
     BackCameraOn();
     frontCameraAutoTimer = millis();
   }
   // Condition 2: rear camera deactivated, enable auto front camera
-  if (videoSensorRear < sensorThreshold && currentCamera != frontCamera && frontCameraAutoTimer > 0)
+  if (!rearCamActive && currentCamera != frontCamera && frontCameraAutoTimer > 0)
   {
     frontCameraAutoTimer = millis();
     FrontCameraOn();
@@ -315,13 +352,9 @@ void loop()
 
   ws.cleanupClients();
 
-  if (loopCounter % 10 == 0)
-  {
-    if (WifiStatus)
-      notifyClients(getOutputStates());
-  }
+  if (WifiStatus)
+    notifyClients(getOutputStates());
+
   if (currentCamera == intCamera)
     Displaystats();
-
-  loopCounter++;
 }
