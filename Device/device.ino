@@ -185,17 +185,17 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
     if (webmsg.hasOwnProperty("camsensmin"))
     {
       sensorThresholdMin = atoi(webmsg["camsensmin"]);
-      preferences.putUInt("sensorMin", sensorThresholdMin);
+      preferences.putInt("sensorMin", sensorThresholdMin);
     }
     if (webmsg.hasOwnProperty("camsensmax"))
     {
       sensorThresholdMax = atoi(webmsg["camsensmax"]);
-      preferences.putUInt("sensorMax", sensorThresholdMax);
+      preferences.putInt("sensorMax", sensorThresholdMax);
     }
     if (webmsg.hasOwnProperty("camautotime"))
     {
       frontCameraAutoThreshold = atoi(webmsg["camautotime"]);
-      preferences.putUInt("camAutoThreshold", frontCameraAutoThreshold);
+      preferences.putInt("camAutoThreshold", frontCameraAutoThreshold);
     }
     notifyClients(getOutputStates());
   }
