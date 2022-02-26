@@ -7,19 +7,16 @@
 #include "SPIFFS.h"
 #include <Arduino_JSON.h>
 #include <AsyncElegantOTA.h>
-
+#include <Preferences.h>
 #include <DefsWiFi.h>
 
 // Camera controller
 #define ON HIGH
 #define OFF LOW
 
-#define longClick 1500 // long button click 1.5s
-#define sensorThresholdMin 100
-#define sensorThresholdMax 2000
-#define frontCameraAutoThreshold 10000 // after the rear camera the front one turns on for 10s
-#define rearCameraSensor 36            // for detecting videosignal
-#define trailCameraSensor 39           // for detecting videosignal
+#define longClick 1500       // long button click 1.5s
+#define rearCameraSensor 36  // for detecting videosignal
+#define trailCameraSensor 39 // for detecting videosignal
 
 #define pinA 23 // 13, controls 1-2
 #define pinB 15 // 5, controls 3-4
@@ -46,6 +43,13 @@ AsyncWebServer server(80);
 
 // Create a WebSocket object
 AsyncWebSocket ws("/ws");
+
+// EEPROM settings
+Preferences preferences;
+
+int sensorThresholdMin;       // min value for camera sensor
+int sensorThresholdMax;       // max value for camera sensor
+int frontCameraAutoThreshold; // after the rear camera the front one turns on for 10s
 
 unsigned long sync = 0;                 // the last time the output pin was toggled
 unsigned long frontCameraAutoTimer = 0; // the last time the output pin was toggled
@@ -138,7 +142,7 @@ void EnableCamera(uint cameraN)
     digitalWrite(pinC, LOW);
     digitalWrite(pinD, LOW);
   }
-  Serial.printf("Camera: %d\n", cameraN);
+  // Serial.printf("Camera: %d\n", cameraN);
 }
 
 String getOutputStates()
@@ -149,6 +153,10 @@ String getOutputStates()
   myArray["rearsensor"] = rearCamActive;
   myArray["trailsensor"] = trailCamActive;
   myArray["camera"] = camnames[currentCamera - 1];
+  myArray["cameraid"] = currentCamera;
+  myArray["camsensmin"] = sensorThresholdMin;
+  myArray["camsensmax"] = sensorThresholdMax;
+  myArray["camautotime"] = frontCameraAutoThreshold;
 
   myArray["uptime"] = millis() / 1000;
   myArray["ram"] = (int)ESP.getFreeHeap();
@@ -168,8 +176,27 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
   if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT)
   {
     data[len] = 0;
-    currentCamera = atoi((char *)data);
-    EnableCamera(currentCamera);
+    JSONVar webmsg = JSON.parse((char *)data);
+    if (webmsg.hasOwnProperty("camera"))
+    {
+      currentCamera = atoi(webmsg["camera"]);
+      EnableCamera(currentCamera);
+    }
+    if (webmsg.hasOwnProperty("camsensmin"))
+    {
+      sensorThresholdMin = atoi(webmsg["camsensmin"]);
+      preferences.putUInt("sensorMin", sensorThresholdMin);
+    }
+    if (webmsg.hasOwnProperty("camsensmax"))
+    {
+      sensorThresholdMax = atoi(webmsg["camsensmax"]);
+      preferences.putUInt("sensorMax", sensorThresholdMax);
+    }
+    if (webmsg.hasOwnProperty("camautotime"))
+    {
+      frontCameraAutoThreshold = atoi(webmsg["camautotime"]);
+      preferences.putUInt("camAutoThreshold", frontCameraAutoThreshold);
+    }
     notifyClients(getOutputStates());
   }
 }
@@ -180,10 +207,10 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
   switch (type)
   {
   case WS_EVT_CONNECT:
-    Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
+    // Serial.printf("WebSocket client #%u connected from %s\n", client->id(), client->remoteIP().toString().c_str());
     break;
   case WS_EVT_DISCONNECT:
-    Serial.printf("WebSocket client #%u disconnected\n", client->id());
+    // Serial.printf("WebSocket client #%u disconnected\n", client->id());
     break;
   case WS_EVT_DATA:
     handleWebSocketMessage(arg, data, len);
@@ -203,6 +230,13 @@ void initWebSocket()
 void setup()
 {
   Serial.begin(115200);
+
+  // start settings
+  preferences.begin("ccc-app", false);
+  sensorThresholdMin = preferences.getInt("sensorMin", 200);
+  sensorThresholdMax = preferences.getInt("sensorMax", 2300);
+  frontCameraAutoThreshold = preferences.getInt("camAutoThreshold", 10000);
+  // end settings
 
   videoOut.begin();
 
@@ -296,6 +330,8 @@ void loop()
     if (v2max < v2cur)
       v2max = v2cur;
   }
+  Serial.printf("Rear\tTrailer\tMin\tMax\n");
+  Serial.printf("%d\t%d\t%d\t%d\n", v1max - v1min, v2max - v2min, sensorThresholdMin, sensorThresholdMax);
 
   rearCamActive = v1max - v1min > sensorThresholdMin && v1max - v1min < sensorThresholdMax;
   trailCamActive = v2max - v2min > sensorThresholdMin && v2max - v2min < sensorThresholdMax;

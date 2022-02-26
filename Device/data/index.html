@@ -1,22 +1,32 @@
-<!DOCTYPE HTML><html>
+<!DOCTYPE HTML>
+<html>
+
 <head>
   <title>Car camera controller</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="stylesheet" type="text/css" href="style.css">
-  <link rel="icon"  type="image/png" href="favicon.png">
-  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css" integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.2/css/all.css"
+    integrity="sha384-fnmOCqbTlWIlj8LyTjo7mOUStjsKC4pOpQbqyi7RrhN7udi9RwhKkMHpvLbHG9Sr" crossorigin="anonymous">
 </head>
+
 <body>
   <div class="topnav">
     <h1>Car camera controller - test outputs</h1>
   </div>
   <div class="content">
     <div class="card-grid">
-        <div class="card">             
-            <p class="card-title"># of camera</p>
-                <input type="number" id="camera" min="1" max="4" onchange="enterNumber(this)" value="3">
-        </div>
-        <!--
+      <div class="card">
+        <p class="card-title"># of camera</p>
+        <input type="number" id="camera" min="1" max="4" onchange="enterNumber(this)">
+        <p class="card-title">Cam sensor min</p>
+        <input type="number" id="camsensmin" onchange="enterNumber(this)">
+        <p class="card-title">Cam sensor max</p>
+        <input type="number" id="camsensmax" onchange="enterNumber(this)">
+        <p class="card-title">Cam auto timeout</p>
+        <input type="number" id="camautotime" onchange="enterNumber(this)">
+      </div>
+      <!--
         <div class="card">
             <p class="card-title">Button Emulator (GPIO 15)</p>
             <label class="switch">
@@ -25,20 +35,19 @@
             </label>
         </div>
         -->
-        <div class="card">
-            <p class="card-title">Stats:</p>
-            <p class ="state">Wifi: <span id="ssid"></span></p>
-            <p class ="state">Version: <span id="version"></span></p>
-            <p class ="state">Rear cam active: <span id="rearsensor"></span></p>
-            <p class ="state">Trail cam active: <span id="trailsensor"></span></p>
-            <p class ="state">Current camera: <span id="currentcamera"></span></p>
-            <p class ="state">Free RAM: <span id="ram"></span></p>
-            <p class ="state">Uptime, s: <span id="uptime"></span></p>
-        </div>
+      <div class="card">
+        <p class="card-title">Stats:</p>
+        <p class="state">Wifi: <span id="ssid"></span></p>
+        <p class="state">Version: <span id="version"></span></p>
+        <p class="state">Rear cam active: <span id="rearsensor"></span></p>
+        <p class="state">Trail cam active: <span id="trailsensor"></span></p>
+        <p class="state">Current camera: <span id="currentcamera"></span></p>
+        <p class="state">Free RAM: <span id="ram"></span></p>
+        <p class="state">Uptime, s: <span id="uptime"></span></p>
+      </div>
     </div>
-</div>
-<script src="/script.js"></script>
+  </div>
+  <script src="/script.js"></script>
 </body>
+
 </html>
-
-

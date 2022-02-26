@@ -27,6 +27,10 @@ function onMessage(event) {
     var myObj = JSON.parse(event.data);
     console.log(myObj);
     document.getElementById("currentcamera").innerHTML = myObj["camera"];
+    document.getElementById("camera").value = myObj["cameraid"];
+    document.getElementById("camsensmin").value = myObj["camsensmin"];
+    document.getElementById("camsensmax").value = myObj["camsensmax"];
+    document.getElementById("camautotime").value = myObj["camautotime"];
     document.getElementById("ssid").innerHTML = myObj["ssid"];
     document.getElementById("version").innerHTML = myObj["version"];
     document.getElementById("rearsensor").innerHTML = myObj["rearsensor"];
@@ -37,7 +41,7 @@ function onMessage(event) {
     //    document.getElementById("0").checked = false;
     //else
     //    document.getElementById("0").checked = true;
-    console.log(event.data);
+    //console.log(event.data);
 }
 
 // Send Requests to Control GPIOs
@@ -52,8 +56,8 @@ function toggleCheckbox(element) {
     }*/
 }
 function enterNumber(element) {
-    console.log(element.value);
-    websocket.send(element.value);
+    console.log('{"' + element.id + '":"' + element.value + '"}');
+    websocket.send('{"' + element.id + '":"' + element.value + '"}');
     /*if (element.checked){
         document.getElementById(element.id+"s").innerHTML = "ON";
     }
