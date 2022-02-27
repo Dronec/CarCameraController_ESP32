@@ -50,6 +50,8 @@ Preferences preferences;
 int sensorThresholdMin;       // min value for camera sensor
 int sensorThresholdMax;       // max value for camera sensor
 int frontCameraAutoThreshold; // after the rear camera the front one turns on for 10s
+bool serialPlotter;           // when true, sends camera's sensors data
+bool autoSwitch;              // when true, camera auto-switching logic applies
 
 unsigned long sync = 0;                 // the last time the output pin was toggled
 unsigned long frontCameraAutoTimer = 0; // the last time the output pin was toggled
@@ -148,18 +150,24 @@ void EnableCamera(uint cameraN)
 String getOutputStates()
 {
   JSONVar myArray;
+  // sending stats
   myArray["ssid"] = ssid;
   myArray["version"] = softwareVersion;
   myArray["rearsensor"] = rearCamActive;
   myArray["trailsensor"] = trailCamActive;
   myArray["camera"] = camnames[currentCamera - 1];
+  myArray["uptime"] = millis() / 1000;
+  myArray["ram"] = (int)ESP.getFreeHeap();
+
+  // sending values
   myArray["cameraid"] = currentCamera;
   myArray["camsensmin"] = sensorThresholdMin;
   myArray["camsensmax"] = sensorThresholdMax;
   myArray["camautotime"] = frontCameraAutoThreshold;
 
-  myArray["uptime"] = millis() / 1000;
-  myArray["ram"] = (int)ESP.getFreeHeap();
+  // sending checkboxes
+  myArray["serialPlotter"] = serialPlotter;
+  myArray["autoSwitch"] = autoSwitch;
 
   String jsonString = JSON.stringify(myArray);
   return jsonString;
@@ -183,20 +191,17 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
       EnableCamera(currentCamera);
     }
     if (webmsg.hasOwnProperty("camsensmin"))
-    {
       sensorThresholdMin = atoi(webmsg["camsensmin"]);
-      preferences.putInt("sensorMin", sensorThresholdMin);
-    }
     if (webmsg.hasOwnProperty("camsensmax"))
-    {
       sensorThresholdMax = atoi(webmsg["camsensmax"]);
-      preferences.putInt("sensorMax", sensorThresholdMax);
-    }
     if (webmsg.hasOwnProperty("camautotime"))
-    {
       frontCameraAutoThreshold = atoi(webmsg["camautotime"]);
-      preferences.putInt("camAutoThreshold", frontCameraAutoThreshold);
-    }
+    if (webmsg.hasOwnProperty("serialPlotter"))
+      serialPlotter = webmsg["serialPlotter"];
+    if (webmsg.hasOwnProperty("autoSwitch"))
+      autoSwitch = webmsg["autoSwitch"];
+
+    writeEEPROMSettings();
     notifyClients(getOutputStates());
   }
 }
@@ -227,15 +232,30 @@ void initWebSocket()
   server.addHandler(&ws);
 }
 
+void readEEPROMSettings()
+{
+  sensorThresholdMin = preferences.getInt("sensorMin", 500);
+  sensorThresholdMax = preferences.getInt("sensorMax", 2300);
+  frontCameraAutoThreshold = preferences.getInt("camAutoThreshold", 10000);
+  serialPlotter = preferences.getBool("serialPlotter", false);
+  autoSwitch = preferences.getBool("autoSwitch", true);
+}
+
+void writeEEPROMSettings()
+{
+  preferences.putInt("sensorMin", sensorThresholdMin);
+  preferences.putInt("sensorMax", sensorThresholdMax);
+  preferences.putInt("camAutoThreshold", frontCameraAutoThreshold);
+  preferences.putBool("serialPlotter", serialPlotter);
+  preferences.putBool("autoSwitch", autoSwitch);
+}
 void setup()
 {
   Serial.begin(115200);
 
   // start settings
   preferences.begin("ccc-app", false);
-  sensorThresholdMin = preferences.getInt("sensorMin", 200);
-  sensorThresholdMax = preferences.getInt("sensorMax", 2300);
-  frontCameraAutoThreshold = preferences.getInt("camAutoThreshold", 10000);
+  readEEPROMSettings();
   // end settings
 
   videoOut.begin();
@@ -330,27 +350,31 @@ void loop()
     if (v2max < v2cur)
       v2max = v2cur;
   }
-  Serial.printf("Rear\tTrailer\tMin\tMax\n");
-  Serial.printf("%d\t%d\t%d\t%d\n", v1max - v1min, v2max - v2min, sensorThresholdMin, sensorThresholdMax);
+
+  if (serialPlotter)
+    Serial.printf("Rear\tTrailer\tMin\tMax\n%d\t%d\t%d\t%d\n", v1max - v1min, v2max - v2min, sensorThresholdMin, sensorThresholdMax);
 
   rearCamActive = v1max - v1min > sensorThresholdMin && v1max - v1min < sensorThresholdMax;
   trailCamActive = v2max - v2min > sensorThresholdMin && v2max - v2min < sensorThresholdMax;
 
-  // Condition 1: rear camera activated
-  if (rearCamActive)
+  if (autoSwitch)
   {
-    BackCameraOn();
-    frontCameraAutoTimer = millis();
+    // Condition 1: rear camera activated
+    if (rearCamActive)
+    {
+      BackCameraOn();
+      frontCameraAutoTimer = millis();
+    }
+    // Condition 2: rear camera deactivated, enable auto front camera
+    if (!rearCamActive && currentCamera != frontCamera && frontCameraAutoTimer > 0)
+    {
+      frontCameraAutoTimer = millis();
+      FrontCameraOn();
+    }
+    // Condition 3: disable auto front camera after threshold
+    if (currentCamera == frontCamera && frontCameraAutoTimer > 0 && millis() - frontCameraAutoTimer > frontCameraAutoThreshold)
+      BackCameraOn();
   }
-  // Condition 2: rear camera deactivated, enable auto front camera
-  if (!rearCamActive && currentCamera != frontCamera && frontCameraAutoTimer > 0)
-  {
-    frontCameraAutoTimer = millis();
-    FrontCameraOn();
-  }
-  // Condition 3: disable auto front camera after threshold
-  if (currentCamera == frontCamera && frontCameraAutoTimer > 0 && millis() - frontCameraAutoTimer > frontCameraAutoThreshold)
-    BackCameraOn();
   /*
     if (digitalRead(buttonPin) == ON)
     {

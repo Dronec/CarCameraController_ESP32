@@ -26,15 +26,23 @@
         <p class="card-title">Cam auto timeout</p>
         <input type="number" id="camautotime" onchange="enterNumber(this)">
       </div>
-      <!--
-        <div class="card">
-            <p class="card-title">Button Emulator (GPIO 15)</p>
-            <label class="switch">
-                <input type="checkbox" onchange="toggleCheckbox(this)" id="15">
-                <span class="slider"></span>
-            </label>
-        </div>
-        -->
+
+      <div class="card">
+        <p class="card-title">Serial plotter</p>
+        <label class="switch">
+          <input type="checkbox" onchange="toggleCheckbox(this)" id="serialPlotter">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="card">
+        <p class="card-title">Auto switch cameras</p>
+        <label class="switch">
+          <input type="checkbox" onchange="toggleCheckbox(this)" id="autoSwitch">
+          <span class="slider"></span>
+        </label>
+      </div>
+
       <div class="card">
         <p class="card-title">Stats:</p>
         <p class="state">Wifi: <span id="ssid"></span></p>

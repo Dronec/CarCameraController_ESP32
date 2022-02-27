@@ -26,17 +26,22 @@ function onClose(event) {
 function onMessage(event) {
     var myObj = JSON.parse(event.data);
     console.log(myObj);
+    // stats
     document.getElementById("currentcamera").innerHTML = myObj["camera"];
-    document.getElementById("camera").value = myObj["cameraid"];
-    document.getElementById("camsensmin").value = myObj["camsensmin"];
-    document.getElementById("camsensmax").value = myObj["camsensmax"];
-    document.getElementById("camautotime").value = myObj["camautotime"];
     document.getElementById("ssid").innerHTML = myObj["ssid"];
     document.getElementById("version").innerHTML = myObj["version"];
     document.getElementById("rearsensor").innerHTML = myObj["rearsensor"];
     document.getElementById("trailsensor").innerHTML = myObj["trailsensor"];
     document.getElementById("ram").innerHTML = myObj["ram"];
     document.getElementById("uptime").innerHTML = myObj["uptime"];
+    // values
+    document.getElementById("camera").value = myObj["cameraid"];
+    document.getElementById("camsensmin").value = myObj["camsensmin"];
+    document.getElementById("camsensmax").value = myObj["camsensmax"];
+    document.getElementById("camautotime").value = myObj["camautotime"];
+    // checkboxes
+    document.getElementById("serialPlotter").checked = myObj["serialPlotter"];
+    document.getElementById("autoSwitch").checked = myObj["autoSwitch"];
     //if (myObj["camera"] == "rear")
     //    document.getElementById("0").checked = false;
     //else
@@ -46,8 +51,8 @@ function onMessage(event) {
 
 // Send Requests to Control GPIOs
 function toggleCheckbox(element) {
-    console.log(element.id);
-    websocket.send(element.id);
+    console.log('{"' + element.id + '":' + element.checked + '}');
+    websocket.send('{"' + element.id + '":' + element.checked + '}');
     /*if (element.checked){
         document.getElementById(element.id+"s").innerHTML = "ON";
     }
