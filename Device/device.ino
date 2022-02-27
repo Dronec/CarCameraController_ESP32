@@ -244,10 +244,10 @@ void initWebSocket()
 
 void readEEPROMSettings()
 {
-  sensorMin = preferences.getInt("sensorMin", 500);
-  sensorMax = preferences.getInt("sensorMax", 2300);
-  sensorMin2 = preferences.getInt("sensorMin2", 500);
-  sensorMax2 = preferences.getInt("sensorMax2", 2300);
+  sensorMin = preferences.getInt("sensorMin", 280);
+  sensorMax = preferences.getInt("sensorMax", 700);
+  sensorMin2 = preferences.getInt("sensorMin2", 60);
+  sensorMax2 = preferences.getInt("sensorMax2", 270);
 
   frontCamTimeout = preferences.getInt("frontCamTimeout", 10000);
   serialPlotter = preferences.getBool("serialPlotter", false);
@@ -273,6 +273,10 @@ void setup()
   preferences.begin("ccc-app", false);
   readEEPROMSettings();
   // end settings
+
+  // tuning analog reader
+  analogSetClockDiv(255);
+  //
 
   videoOut.begin();
 
@@ -335,7 +339,6 @@ void Displaystats()
   videoOut.printf(" R: %d-%d,%d\n", v1min, v1max, v1max - v1min);
   videoOut.printf(" T: %d-%d,%d\n", v2min, v2max, v2max - v2min);
 
-  // Serial.printf("%d,%d\n",vmarker1,vmarker2);
   videoOut.printf(" Camera: %d\n", currentCamera);
 
   videoOut.printf(" Uptime: %ds\n", millis() / 1000);
@@ -354,6 +357,8 @@ void loop()
     v1cur = analogRead(rearCameraSensor);
     delay(10);
     v2cur = analogRead(trailCameraSensor);
+    //Serial.printf("Rear\tTrailer\n");
+    //Serial.printf("%d\t%d\n", v1cur, v2cur);
     if (v1min > v1cur)
       v1min = v1cur;
 
