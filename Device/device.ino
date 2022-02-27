@@ -47,11 +47,13 @@ AsyncWebSocket ws("/ws");
 // EEPROM settings
 Preferences preferences;
 
-int sensorThresholdMin;       // min value for camera sensor
-int sensorThresholdMax;       // max value for camera sensor
-int frontCameraAutoThreshold; // after the rear camera the front one turns on for 10s
-bool serialPlotter;           // when true, sends camera's sensors data
-bool autoSwitch;              // when true, camera auto-switching logic applies
+int sensorMin;       // min value for rear camera sensor
+int sensorMax;       // max value for rear camera sensor
+int sensorMin2;      // min value for trailer camera sensor
+int sensorMax2;      // max value for trailer camera sensor
+int frontCamTimeout; // after the rear camera the front one turns on for 10s
+bool serialPlotter;  // when true, sends camera's sensors data
+bool autoSwitch;     // when true, camera auto-switching logic applies
 
 unsigned long sync = 0;                 // the last time the output pin was toggled
 unsigned long frontCameraAutoTimer = 0; // the last time the output pin was toggled
@@ -152,18 +154,20 @@ String getOutputStates()
   JSONVar myArray;
   // sending stats
   myArray["ssid"] = ssid;
-  myArray["version"] = softwareVersion;
-  myArray["rearsensor"] = rearCamActive;
-  myArray["trailsensor"] = trailCamActive;
+  myArray["softwareVersion"] = softwareVersion;
+  myArray["rearCamActive"] = rearCamActive;
+  myArray["trailCamActive"] = trailCamActive;
   myArray["camera"] = camnames[currentCamera - 1];
   myArray["uptime"] = millis() / 1000;
   myArray["ram"] = (int)ESP.getFreeHeap();
 
   // sending values
-  myArray["cameraid"] = currentCamera;
-  myArray["camsensmin"] = sensorThresholdMin;
-  myArray["camsensmax"] = sensorThresholdMax;
-  myArray["camautotime"] = frontCameraAutoThreshold;
+  myArray["currentCamera"] = currentCamera;
+  myArray["sensorMin"] = sensorMin;
+  myArray["sensorMax"] = sensorMax;
+  myArray["sensorMin2"] = sensorMin2;
+  myArray["sensorMax2"] = sensorMax2;
+  myArray["frontCamTimeout"] = frontCamTimeout;
 
   // sending checkboxes
   myArray["serialPlotter"] = serialPlotter;
@@ -185,17 +189,23 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
   {
     data[len] = 0;
     JSONVar webmsg = JSON.parse((char *)data);
-    if (webmsg.hasOwnProperty("camera"))
+    if (webmsg.hasOwnProperty("currentCamera"))
     {
-      currentCamera = atoi(webmsg["camera"]);
+      currentCamera = atoi(webmsg["currentCamera"]);
       EnableCamera(currentCamera);
     }
-    if (webmsg.hasOwnProperty("camsensmin"))
-      sensorThresholdMin = atoi(webmsg["camsensmin"]);
-    if (webmsg.hasOwnProperty("camsensmax"))
-      sensorThresholdMax = atoi(webmsg["camsensmax"]);
-    if (webmsg.hasOwnProperty("camautotime"))
-      frontCameraAutoThreshold = atoi(webmsg["camautotime"]);
+    if (webmsg.hasOwnProperty("sensorMin"))
+      sensorMin = atoi(webmsg["sensorMin"]);
+    if (webmsg.hasOwnProperty("sensorMax"))
+      sensorMax = atoi(webmsg["sensorMax"]);
+
+    if (webmsg.hasOwnProperty("sensorMin2"))
+      sensorMin2 = atoi(webmsg["sensorMin2"]);
+    if (webmsg.hasOwnProperty("sensorMax2"))
+      sensorMax2 = atoi(webmsg["sensorMax2"]);
+
+    if (webmsg.hasOwnProperty("frontCamTimeout"))
+      frontCamTimeout = atoi(webmsg["frontCamTimeout"]);
     if (webmsg.hasOwnProperty("serialPlotter"))
       serialPlotter = webmsg["serialPlotter"];
     if (webmsg.hasOwnProperty("autoSwitch"))
@@ -234,18 +244,24 @@ void initWebSocket()
 
 void readEEPROMSettings()
 {
-  sensorThresholdMin = preferences.getInt("sensorMin", 500);
-  sensorThresholdMax = preferences.getInt("sensorMax", 2300);
-  frontCameraAutoThreshold = preferences.getInt("camAutoThreshold", 10000);
+  sensorMin = preferences.getInt("sensorMin", 500);
+  sensorMax = preferences.getInt("sensorMax", 2300);
+  sensorMin2 = preferences.getInt("sensorMin2", 500);
+  sensorMax2 = preferences.getInt("sensorMax2", 2300);
+
+  frontCamTimeout = preferences.getInt("frontCamTimeout", 10000);
   serialPlotter = preferences.getBool("serialPlotter", false);
   autoSwitch = preferences.getBool("autoSwitch", true);
 }
 
 void writeEEPROMSettings()
 {
-  preferences.putInt("sensorMin", sensorThresholdMin);
-  preferences.putInt("sensorMax", sensorThresholdMax);
-  preferences.putInt("camAutoThreshold", frontCameraAutoThreshold);
+  preferences.putInt("sensorMin", sensorMin);
+  preferences.putInt("sensorMax", sensorMax);
+  preferences.putInt("sensorMin2", sensorMin2);
+  preferences.putInt("sensorMax2", sensorMax2);
+
+  preferences.putInt("frontCamTimeout", frontCamTimeout);
   preferences.putBool("serialPlotter", serialPlotter);
   preferences.putBool("autoSwitch", autoSwitch);
 }
@@ -352,10 +368,12 @@ void loop()
   }
 
   if (serialPlotter)
-    Serial.printf("Rear\tTrailer\tMin\tMax\n%d\t%d\t%d\t%d\n", v1max - v1min, v2max - v2min, sensorThresholdMin, sensorThresholdMax);
-
-  rearCamActive = v1max - v1min > sensorThresholdMin && v1max - v1min < sensorThresholdMax;
-  trailCamActive = v2max - v2min > sensorThresholdMin && v2max - v2min < sensorThresholdMax;
+  {
+    Serial.printf("Rear\tTrailer\tRMin\tRMax\tTMin\tTMax\n");
+    Serial.printf("%d\t%d\t%d\t%d\t%d\t%d\n", v1max - v1min, v2max - v2min, sensorMin, sensorMax, sensorMin2, sensorMax2);
+  }
+  rearCamActive = v1max - v1min > sensorMin && v1max - v1min < sensorMax;
+  trailCamActive = v2max - v2min > sensorMin2 && v2max - v2min < sensorMax2;
 
   if (autoSwitch)
   {
@@ -372,7 +390,7 @@ void loop()
       FrontCameraOn();
     }
     // Condition 3: disable auto front camera after threshold
-    if (currentCamera == frontCamera && frontCameraAutoTimer > 0 && millis() - frontCameraAutoTimer > frontCameraAutoThreshold)
+    if (currentCamera == frontCamera && frontCameraAutoTimer > 0 && millis() - frontCameraAutoTimer > frontCamTimeout)
       BackCameraOn();
   }
   /*

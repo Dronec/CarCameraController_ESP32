@@ -27,18 +27,20 @@ function onMessage(event) {
     var myObj = JSON.parse(event.data);
     console.log(myObj);
     // stats
-    document.getElementById("currentcamera").innerHTML = myObj["camera"];
+    document.getElementById("camera").innerHTML = myObj["camera"];
     document.getElementById("ssid").innerHTML = myObj["ssid"];
-    document.getElementById("version").innerHTML = myObj["version"];
-    document.getElementById("rearsensor").innerHTML = myObj["rearsensor"];
-    document.getElementById("trailsensor").innerHTML = myObj["trailsensor"];
+    document.getElementById("softwareVersion").innerHTML = myObj["softwareVersion"];
+    document.getElementById("rearCamActive").innerHTML = myObj["rearCamActive"];
+    document.getElementById("trailCamActive").innerHTML = myObj["trailCamActive"];
     document.getElementById("ram").innerHTML = myObj["ram"];
     document.getElementById("uptime").innerHTML = myObj["uptime"];
     // values
-    document.getElementById("camera").value = myObj["cameraid"];
-    document.getElementById("camsensmin").value = myObj["camsensmin"];
-    document.getElementById("camsensmax").value = myObj["camsensmax"];
-    document.getElementById("camautotime").value = myObj["camautotime"];
+    document.getElementById("currentCamera").value = myObj["currentCamera"];
+    document.getElementById("sensorMin").value = myObj["sensorMin"];
+    document.getElementById("sensorMax").value = myObj["sensorMax"];
+    document.getElementById("sensorMin2").value = myObj["sensorMin2"];
+    document.getElementById("sensorMax2").value = myObj["sensorMax2"];
+    document.getElementById("frontCamTimeout").value = myObj["frontCamTimeout"];
     // checkboxes
     document.getElementById("serialPlotter").checked = myObj["serialPlotter"];
     document.getElementById("autoSwitch").checked = myObj["autoSwitch"];

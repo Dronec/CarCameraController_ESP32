@@ -17,14 +17,19 @@
   <div class="content">
     <div class="card-grid">
       <div class="card">
-        <p class="card-title"># of camera</p>
-        <input type="number" id="camera" min="1" max="4" onchange="enterNumber(this)">
-        <p class="card-title">Cam sensor min</p>
-        <input type="number" id="camsensmin" onchange="enterNumber(this)">
-        <p class="card-title">Cam sensor max</p>
-        <input type="number" id="camsensmax" onchange="enterNumber(this)">
-        <p class="card-title">Cam auto timeout</p>
-        <input type="number" id="camautotime" onchange="enterNumber(this)">
+        <p class="card-title">Settings</p>
+        <label for="currentCamera">Camera:</label>
+        <input type="number" id="currentCamera" min="1" max="4" onchange="enterNumber(this)"><br>
+        <label for="sensorMin">RMin:</label>
+        <input type="number" id="sensorMin" onchange="enterNumber(this)"><br>
+        <label for="sensorMax">RMax:</label>
+        <input type="number" id="sensorMax" onchange="enterNumber(this)"><br>
+        <label for="sensorMin2">TMin:</label>
+        <input type="number" id="sensorMin2" onchange="enterNumber(this)"><br>
+        <label for="sensorMax2">TMax:</label>
+        <input type="number" id="sensorMax2" onchange="enterNumber(this)"><br>
+        <label for="frontCamTimeout">FC Timeout:</label>
+        <input type="number" id="frontCamTimeout" onchange="enterNumber(this)"><br>
       </div>
 
       <div class="card">
@@ -46,10 +51,10 @@
       <div class="card">
         <p class="card-title">Stats:</p>
         <p class="state">Wifi: <span id="ssid"></span></p>
-        <p class="state">Version: <span id="version"></span></p>
-        <p class="state">Rear cam active: <span id="rearsensor"></span></p>
-        <p class="state">Trail cam active: <span id="trailsensor"></span></p>
-        <p class="state">Current camera: <span id="currentcamera"></span></p>
+        <p class="state">Version: <span id="softwareVersion"></span></p>
+        <p class="state">Rear cam active: <span id="rearCamActive"></span></p>
+        <p class="state">Trail cam active: <span id="trailCamActive"></span></p>
+        <p class="state">Current camera: <span id="camera"></span></p>
         <p class="state">Free RAM: <span id="ram"></span></p>
         <p class="state">Uptime, s: <span id="uptime"></span></p>
       </div>
