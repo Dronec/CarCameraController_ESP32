@@ -52,6 +52,7 @@ int sensorMax;       // max value for rear camera sensor
 int sensorMin2;      // min value for trailer camera sensor
 int sensorMax2;      // max value for trailer camera sensor
 int frontCamTimeout; // after the rear camera the front one turns on for 10s
+int trailerCamMode;  // 0 - Auto, 1 - Off, 2 - On
 bool serialPlotter;  // when true, sends camera's sensors data
 bool autoSwitch;     // when true, camera auto-switching logic applies
 
@@ -91,15 +92,18 @@ void FrontCameraOn()
 }
 void BackCameraOn()
 {
-  if (rearCamActive && trailCamActive)
+  if (rearCamActive)
   {
-    EnableCamera(trailCamera);
-    currentCamera = trailCamera;
-  }
-  else
-  {
-    EnableCamera(rearCamera);
-    currentCamera = rearCamera;
+    if ((trailerCamMode == 0 && trailCamActive) || (trailerCamMode == 2))
+    {
+      EnableCamera(trailCamera);
+      currentCamera = trailCamera;
+    }
+    else
+    {
+      EnableCamera(rearCamera);
+      currentCamera = rearCamera;
+    }
   }
   frontCameraAutoTimer = 0;
 }
@@ -168,6 +172,7 @@ String getOutputStates()
   myArray["sensorMin2"] = sensorMin2;
   myArray["sensorMax2"] = sensorMax2;
   myArray["frontCamTimeout"] = frontCamTimeout;
+  myArray["trailerCamMode"] = trailerCamMode;
 
   // sending checkboxes
   myArray["serialPlotter"] = serialPlotter;
@@ -210,6 +215,8 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
       serialPlotter = webmsg["serialPlotter"];
     if (webmsg.hasOwnProperty("autoSwitch"))
       autoSwitch = webmsg["autoSwitch"];
+    if (webmsg.hasOwnProperty("trailerCamMode"))
+      trailerCamMode = atoi(webmsg["trailerCamMode"]);
 
     writeEEPROMSettings();
     notifyClients(getOutputStates());
@@ -252,6 +259,7 @@ void readEEPROMSettings()
   frontCamTimeout = preferences.getInt("frontCamTimeout", 10000);
   serialPlotter = preferences.getBool("serialPlotter", false);
   autoSwitch = preferences.getBool("autoSwitch", true);
+  trailerCamMode = preferences.getInt("trailerCamMode", 0);
 }
 
 void writeEEPROMSettings()
@@ -264,6 +272,7 @@ void writeEEPROMSettings()
   preferences.putInt("frontCamTimeout", frontCamTimeout);
   preferences.putBool("serialPlotter", serialPlotter);
   preferences.putBool("autoSwitch", autoSwitch);
+  preferences.putInt("trailerCamMode", trailerCamMode);
 }
 void setup()
 {
@@ -357,8 +366,8 @@ void loop()
     v1cur = analogRead(rearCameraSensor);
     delay(10);
     v2cur = analogRead(trailCameraSensor);
-    //Serial.printf("Rear\tTrailer\n");
-    //Serial.printf("%d\t%d\n", v1cur, v2cur);
+    // Serial.printf("Rear\tTrailer\n");
+    // Serial.printf("%d\t%d\n", v1cur, v2cur);
     if (v1min > v1cur)
       v1min = v1cur;
 

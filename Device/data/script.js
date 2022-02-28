@@ -41,6 +41,7 @@ function onMessage(event) {
     document.getElementById("sensorMin2").value = myObj["sensorMin2"];
     document.getElementById("sensorMax2").value = myObj["sensorMax2"];
     document.getElementById("frontCamTimeout").value = myObj["frontCamTimeout"];
+    document.getElementById("trailerCamMode").value = myObj["trailerCamMode"];
     // checkboxes
     document.getElementById("serialPlotter").checked = myObj["serialPlotter"];
     document.getElementById("autoSwitch").checked = myObj["autoSwitch"];
