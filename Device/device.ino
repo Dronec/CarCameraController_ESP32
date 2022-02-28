@@ -47,13 +47,9 @@ AsyncWebSocket ws("/ws");
 // EEPROM settings
 Preferences preferences;
 
-int sensorMin;       // min value for rear camera sensor
-int sensorMax;       // max value for rear camera sensor
-int sensorMin2;      // min value for trailer camera sensor
-int sensorMax2;      // max value for trailer camera sensor
 int frontCamTimeout; // after the rear camera the front one turns on for 10s
 int trailerCamMode;  // 0 - Auto, 1 - Off, 2 - On
-bool serialPlotter;  // when true, sends camera's sensors data
+int serialPlotter;   // 0 - Off, 1 - Slow, 2 - Fast
 bool autoSwitch;     // when true, camera auto-switching logic applies
 
 unsigned long sync = 0;                 // the last time the output pin was toggled
@@ -167,15 +163,11 @@ String getOutputStates()
 
   // sending values
   myArray["currentCamera"] = currentCamera;
-  myArray["sensorMin"] = sensorMin;
-  myArray["sensorMax"] = sensorMax;
-  myArray["sensorMin2"] = sensorMin2;
-  myArray["sensorMax2"] = sensorMax2;
   myArray["frontCamTimeout"] = frontCamTimeout;
   myArray["trailerCamMode"] = trailerCamMode;
+  myArray["serialPlotter"] = serialPlotter;
 
   // sending checkboxes
-  myArray["serialPlotter"] = serialPlotter;
   myArray["autoSwitch"] = autoSwitch;
 
   String jsonString = JSON.stringify(myArray);
@@ -199,20 +191,11 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
       currentCamera = atoi(webmsg["currentCamera"]);
       EnableCamera(currentCamera);
     }
-    if (webmsg.hasOwnProperty("sensorMin"))
-      sensorMin = atoi(webmsg["sensorMin"]);
-    if (webmsg.hasOwnProperty("sensorMax"))
-      sensorMax = atoi(webmsg["sensorMax"]);
-
-    if (webmsg.hasOwnProperty("sensorMin2"))
-      sensorMin2 = atoi(webmsg["sensorMin2"]);
-    if (webmsg.hasOwnProperty("sensorMax2"))
-      sensorMax2 = atoi(webmsg["sensorMax2"]);
 
     if (webmsg.hasOwnProperty("frontCamTimeout"))
       frontCamTimeout = atoi(webmsg["frontCamTimeout"]);
     if (webmsg.hasOwnProperty("serialPlotter"))
-      serialPlotter = webmsg["serialPlotter"];
+      serialPlotter = atoi(webmsg["serialPlotter"]);
     if (webmsg.hasOwnProperty("autoSwitch"))
       autoSwitch = webmsg["autoSwitch"];
     if (webmsg.hasOwnProperty("trailerCamMode"))
@@ -251,29 +234,29 @@ void initWebSocket()
 
 void readEEPROMSettings()
 {
-  sensorMin = preferences.getInt("sensorMin", 280);
-  sensorMax = preferences.getInt("sensorMax", 700);
-  sensorMin2 = preferences.getInt("sensorMin2", 60);
-  sensorMax2 = preferences.getInt("sensorMax2", 270);
-
   frontCamTimeout = preferences.getInt("frontCamTimeout", 10000);
-  serialPlotter = preferences.getBool("serialPlotter", false);
+  serialPlotter = preferences.getInt("serialPlotter", 0);
   autoSwitch = preferences.getBool("autoSwitch", true);
   trailerCamMode = preferences.getInt("trailerCamMode", 0);
 }
 
 void writeEEPROMSettings()
 {
-  preferences.putInt("sensorMin", sensorMin);
-  preferences.putInt("sensorMax", sensorMax);
-  preferences.putInt("sensorMin2", sensorMin2);
-  preferences.putInt("sensorMax2", sensorMax2);
-
   preferences.putInt("frontCamTimeout", frontCamTimeout);
-  preferences.putBool("serialPlotter", serialPlotter);
+  preferences.putInt("serialPlotter", serialPlotter);
   preferences.putBool("autoSwitch", autoSwitch);
   preferences.putInt("trailerCamMode", trailerCamMode);
 }
+
+void DetectVideoStream(int vr[4], int val)
+{
+  vr[1] = vr[2];
+  vr[2] = vr[3];
+  vr[3] = val;
+  if (vr[2] < (vr[1] - 10) && vr[2] < (vr[3] - 10))
+    vr[0]++;
+}
+
 void setup()
 {
   Serial.begin(115200);
@@ -356,38 +339,31 @@ void Displaystats()
 
 void loop()
 {
-  v1min = 4095;
-  v1max = 0;
-  v2min = 4095;
-  v2max = 0;
   sync = millis();
+
+  int vdrear[4] = {0, 0, 0, 0};
+  int vdtrail[4] = {0, 0, 0, 0};
   while (sync + 1000 > millis())
   {
-    v1cur = analogRead(rearCameraSensor);
     delay(10);
+    v1cur = analogRead(rearCameraSensor);
     v2cur = analogRead(trailCameraSensor);
-    // Serial.printf("Rear\tTrailer\n");
-    // Serial.printf("%d\t%d\n", v1cur, v2cur);
-    if (v1min > v1cur)
-      v1min = v1cur;
+    DetectVideoStream(vdrear, v1cur);
+    DetectVideoStream(vdtrail, v2cur);
 
-    if (v1max < v1cur)
-      v1max = v1cur;
-
-    if (v2min > v2cur)
-      v2min = v2cur;
-
-    if (v2max < v2cur)
-      v2max = v2cur;
+    if (serialPlotter == 2)
+    {
+      Serial.printf("Rear\tTrailer\n");
+      Serial.printf("%d\t%d\n", v1cur, v2cur);
+    }
   }
 
-  if (serialPlotter)
+  if (serialPlotter == 1)
   {
-    Serial.printf("Rear\tTrailer\tRMin\tRMax\tTMin\tTMax\n");
-    Serial.printf("%d\t%d\t%d\t%d\t%d\t%d\n", v1max - v1min, v2max - v2min, sensorMin, sensorMax, sensorMin2, sensorMax2);
+    Serial.printf("Rear_frames\tTrailer_frames\n%d\t%d\n", vdrear[0], vdtrail[0]);
   }
-  rearCamActive = v1max - v1min > sensorMin && v1max - v1min < sensorMax;
-  trailCamActive = v2max - v2min > sensorMin2 && v2max - v2min < sensorMax2;
+  rearCamActive = vdrear[0] >= 35 && vdrear[0] <= 40;
+  trailCamActive = vdtrail[0] >= 34 && vdtrail[0] <= 40;
 
   if (autoSwitch)
   {

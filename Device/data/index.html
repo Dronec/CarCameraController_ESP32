@@ -19,31 +19,33 @@
       <div class="card">
         <p class="card-title">Settings</p>
         <label for="currentCamera">Camera:</label>
-        <input type="number" id="currentCamera" min="1" max="4" onchange="enterNumber(this)"><br>
-        <label for="sensorMin">RMin:</label>
-        <input type="number" id="sensorMin" onchange="enterNumber(this)"><br>
-        <label for="sensorMax">RMax:</label>
-        <input type="number" id="sensorMax" onchange="enterNumber(this)"><br>
-        <label for="sensorMin2">TMin:</label>
-        <input type="number" id="sensorMin2" onchange="enterNumber(this)"><br>
-        <label for="sensorMax2">TMax:</label>
-        <input type="number" id="sensorMax2" onchange="enterNumber(this)"><br>
+        <select id="currentCamera" onchange="enterNumber(this)">
+          <option value="1">Rear</option>
+          <option value="2">Front</option>
+          <option value="3">Internal display</option>
+          <option value="4">Trailer</option>
+        </select>
+        <br>
         <label for="frontCamTimeout">FC Timeout:</label>
-        <input type="number" id="frontCamTimeout" onchange="enterNumber(this)"><br>
+        <select id="frontCamTimeout" onchange="enterNumber(this)">
+          <option value="1000">1s</option>
+          <option value="5000">5s</option>
+          <option value="10000">10s</option>
+        </select>
+        <br>
         <label for="trailerCamMode">Trailer cam mode:</label>
         <select id="trailerCamMode" onchange="enterNumber(this)">
           <option value="0">Auto</option>
           <option value="1">Off</option>
           <option value="2">On</option>
         </select>
-      </div>
-
-      <div class="card">
-        <p class="card-title">Serial plotter</p>
-        <label class="switch">
-          <input type="checkbox" onchange="toggleCheckbox(this)" id="serialPlotter">
-          <span class="slider"></span>
-        </label>
+        <br>
+        <label for="serialPlotter">Serial plotter:</label>
+        <select id="serialPlotter" onchange="enterNumber(this)">
+          <option value="0">Off</option>
+          <option value="1">Slow</option>
+          <option value="2">Fast</option>
+        </select>
       </div>
 
       <div class="card">

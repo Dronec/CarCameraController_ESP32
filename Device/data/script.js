@@ -36,14 +36,10 @@ function onMessage(event) {
     document.getElementById("uptime").innerHTML = myObj["uptime"];
     // values
     document.getElementById("currentCamera").value = myObj["currentCamera"];
-    document.getElementById("sensorMin").value = myObj["sensorMin"];
-    document.getElementById("sensorMax").value = myObj["sensorMax"];
-    document.getElementById("sensorMin2").value = myObj["sensorMin2"];
-    document.getElementById("sensorMax2").value = myObj["sensorMax2"];
     document.getElementById("frontCamTimeout").value = myObj["frontCamTimeout"];
     document.getElementById("trailerCamMode").value = myObj["trailerCamMode"];
+    document.getElementById("serialPlotter").value = myObj["serialPlotter"];
     // checkboxes
-    document.getElementById("serialPlotter").checked = myObj["serialPlotter"];
     document.getElementById("autoSwitch").checked = myObj["autoSwitch"];
     //if (myObj["camera"] == "rear")
     //    document.getElementById("0").checked = false;
