@@ -248,13 +248,17 @@ void writeEEPROMSettings()
   preferences.putInt("trailerCamMode", trailerCamMode);
 }
 
-void DetectVideoStream(int vr[4], int val)
+void DetectVideoStream(int vr[6], int val, unsigned long timing)
 {
-  vr[1] = vr[2];
-  vr[2] = vr[3];
-  vr[3] = val;
-  if (vr[2] < (vr[1] - 10) && vr[2] < (vr[3] - 10))
+  vr[3] = vr[4];
+  vr[4] = vr[5];
+  vr[5] = val;
+  if (vr[4] < (vr[3] - 0) && vr[4] < (vr[5] - 0))
+  {
+    vr[1] = (vr[1] + (timing - vr[2])) / 2;
+    vr[2] = timing;
     vr[0]++;
+  }
 }
 
 void setup()
@@ -328,8 +332,8 @@ void Displaystats()
   else
     videoOut.println("off");
 
-  videoOut.printf(" R: %d-%d,%d\n", v1min, v1max, v1max - v1min);
-  videoOut.printf(" T: %d-%d,%d\n", v2min, v2max, v2max - v2min);
+  // videoOut.printf(" R: %d-%d,%d\n", v1min, v1max, v1max - v1min);
+  // videoOut.printf(" T: %d-%d,%d\n", v2min, v2max, v2max - v2min);
 
   videoOut.printf(" Camera: %d\n", currentCamera);
 
@@ -341,15 +345,15 @@ void loop()
 {
   sync = millis();
 
-  int vdrear[4] = {0, 0, 0, 0};
-  int vdtrail[4] = {0, 0, 0, 0};
+  int vdrear[6] = {0, 0, 0, 0, 0, 0};
+  int vdtrail[6] = {0, 0, 0, 0, 0, 0};
   while (sync + 1000 > millis())
   {
     delay(10);
     v1cur = analogRead(rearCameraSensor);
+    DetectVideoStream(vdrear, v1cur, millis());
     v2cur = analogRead(trailCameraSensor);
-    DetectVideoStream(vdrear, v1cur);
-    DetectVideoStream(vdtrail, v2cur);
+    DetectVideoStream(vdtrail, v2cur, millis());
 
     if (serialPlotter == 2)
     {
@@ -360,10 +364,10 @@ void loop()
 
   if (serialPlotter == 1)
   {
-    Serial.printf("Rear_frames\tTrailer_frames\n%d\t%d\n", vdrear[0], vdtrail[0]);
+    Serial.printf("Rear_frames\tTrailer_frames\tT1\tT2\n%d\t%d\t%d\t%d\n", vdrear[0], vdtrail[0], vdrear[1], vdtrail[1]);
   }
-  rearCamActive = vdrear[0] >= 35 && vdrear[0] <= 40;
-  trailCamActive = vdtrail[0] >= 34 && vdtrail[0] <= 40;
+  rearCamActive = vdrear[0] >= 36 && vdrear[0] <= 40;
+  trailCamActive = vdtrail[0] >= 36 && vdtrail[0] <= 40 && (vdtrail[1] == 23 || vdtrail[1] == 26);
 
   if (autoSwitch)
   {
