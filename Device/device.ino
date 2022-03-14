@@ -4,6 +4,7 @@
 #include <WiFi.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
+#include <WiFiUdp.h>
 #include "SPIFFS.h"
 #include <Arduino_JSON.h>
 #include <AsyncElegantOTA.h>
@@ -44,13 +45,19 @@ AsyncWebServer server(80);
 // Create a WebSocket object
 AsyncWebSocket ws("/ws");
 
+// Create a UDP client
+WiFiUDP Udp;
+
 // EEPROM settings
 Preferences preferences;
 
-int frontCamTimeout; // after the rear camera the front one turns on for 10s
-int trailerCamMode;  // 0 - Auto, 1 - Off, 2 - On
-int serialPlotter;   // 0 - Off, 1 - Slow, 2 - Fast
-bool autoSwitch;     // when true, camera auto-switching logic applies
+int frontCamTimeout;        // after the rear camera the front one turns on for 10s
+int trailerCamMode;         // 0 - Auto, 1 - Off, 2 - On
+int serialPlotter;          // 0 - Off, 1 - Slow, 2 - Fast
+bool autoSwitch;            // when true, camera auto-switching logic applies
+bool serialOverUDP = false; // when true, the data get sent to a PC
+
+String souIP;
 
 unsigned long sync = 0;                 // the last time the output pin was toggled
 unsigned long frontCameraAutoTimer = 0; // the last time the output pin was toggled
@@ -79,6 +86,16 @@ void initSPIFFS()
     Serial.println("An error has occurred while mounting SPIFFS");
   }
   Serial.println("SPIFFS mounted successfully");
+}
+
+void sohSend(char *Data)
+{
+  if (serialOverUDP)
+  {
+    Udp.beginPacket(souIP.c_str(), 11000);
+    Udp.println(Data);
+    Udp.endPacket();
+  }
 }
 
 void FrontCameraOn()
@@ -166,9 +183,11 @@ String getOutputStates()
   myArray["frontCamTimeout"] = frontCamTimeout;
   myArray["trailerCamMode"] = trailerCamMode;
   myArray["serialPlotter"] = serialPlotter;
+  myArray["souIP"] = souIP;
 
   // sending checkboxes
   myArray["autoSwitch"] = autoSwitch;
+  myArray["serialOverUDP"] = serialOverUDP;
 
   String jsonString = JSON.stringify(myArray);
   return jsonString;
@@ -200,6 +219,10 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
       autoSwitch = webmsg["autoSwitch"];
     if (webmsg.hasOwnProperty("trailerCamMode"))
       trailerCamMode = atoi(webmsg["trailerCamMode"]);
+    if (webmsg.hasOwnProperty("serialOverUDP"))
+      serialOverUDP = webmsg["serialOverUDP"];
+    if (webmsg.hasOwnProperty("souIP"))
+      souIP = webmsg["souIP"];
 
     writeEEPROMSettings();
     notifyClients(getOutputStates());
@@ -238,6 +261,7 @@ void readEEPROMSettings()
   serialPlotter = preferences.getInt("serialPlotter", 0);
   autoSwitch = preferences.getBool("autoSwitch", true);
   trailerCamMode = preferences.getInt("trailerCamMode", 0);
+  souIP = preferences.getString("souIP", "192.168.1.12");
 }
 
 void writeEEPROMSettings()
@@ -246,6 +270,7 @@ void writeEEPROMSettings()
   preferences.putInt("serialPlotter", serialPlotter);
   preferences.putBool("autoSwitch", autoSwitch);
   preferences.putInt("trailerCamMode", trailerCamMode);
+  preferences.putString("souIP", souIP);
 }
 
 void DetectVideoStream(int vr[6], int val, unsigned long timing)
@@ -359,14 +384,24 @@ void loop()
     {
       Serial.printf("Rear\tTrailer\n");
       Serial.printf("%d\t%d\n", v1cur, v2cur);
+
+      char soh_Buf[64];
+      char *temp = soh_Buf;
+      snprintf(temp, sizeof(soh_Buf), "%d,%d", v1cur, v2cur);
+      sohSend(temp);
     }
   }
 
   if (serialPlotter == 1)
   {
     Serial.printf("Rear_frames\tTrailer_frames\tT1\tT2\n%d\t%d\t%d\t%d\n", vdrear[0], vdtrail[0], vdrear[1], vdtrail[1]);
+
+    char soh_Buf[64];
+    char *temp = soh_Buf;
+    snprintf(temp, sizeof(soh_Buf), "%d,%d,%d,%d", vdrear[0], vdtrail[0], vdrear[1], vdtrail[1]);
+    sohSend(temp);
   }
-  rearCamActive = vdrear[0] >= 36 && vdrear[0] <= 40;
+  rearCamActive = vdrear[0] >= 20 && vdrear[0] <= 40;
   trailCamActive = vdtrail[0] >= 36 && vdtrail[0] <= 40 && (vdtrail[1] == 23 || vdtrail[1] == 26);
 
   if (autoSwitch)
@@ -417,8 +452,10 @@ void loop()
     }
   */
   if (WiFi.status() == WL_CONNECTED && WifiStatus == false)
+  {
     WifiStatus = true;
-
+    Serial.println(WiFi.localIP());
+  }
   if (WiFi.status() != WL_CONNECTED && WifiStatus == true)
     WifiStatus = false;
 

@@ -39,8 +39,10 @@ function onMessage(event) {
     document.getElementById("frontCamTimeout").value = myObj["frontCamTimeout"];
     document.getElementById("trailerCamMode").value = myObj["trailerCamMode"];
     document.getElementById("serialPlotter").value = myObj["serialPlotter"];
+    document.getElementById("souIP").value = myObj["souIP"];
     // checkboxes
     document.getElementById("autoSwitch").checked = myObj["autoSwitch"];
+    document.getElementById("serialOverUDP").checked = myObj["serialOverUDP"];
     //if (myObj["camera"] == "rear")
     //    document.getElementById("0").checked = false;
     //else
