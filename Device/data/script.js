@@ -40,6 +40,7 @@ function onMessage(event) {
     document.getElementById("trailerCamMode").value = myObj["trailerCamMode"];
     document.getElementById("serialPlotter").value = myObj["serialPlotter"];
     document.getElementById("souIP").value = myObj["souIP"];
+    document.getElementById("loopDelay").value = myObj["loopDelay"];
     // checkboxes
     document.getElementById("autoSwitch").checked = myObj["autoSwitch"];
     document.getElementById("serialOverUDP").checked = myObj["serialOverUDP"];

@@ -1,11 +1,12 @@
 #include <ESP_8_BIT_GFX.h>
-
 #include <Arduino.h>
 #include <WiFi.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <WiFiUdp.h>
 #include "SPIFFS.h"
+#include <ESP32CAN.h>
+#include <CAN_config.h>
 #include <Arduino_JSON.h>
 #include <AsyncElegantOTA.h>
 #include <Preferences.h>
@@ -48,12 +49,16 @@ AsyncWebSocket ws("/ws");
 // Create a UDP client
 WiFiUDP Udp;
 
+// CAN device
+CAN_device_t CAN_cfg;
+
 // EEPROM settings
 Preferences preferences;
 
-int frontCamTimeout;        // after the rear camera the front one turns on for 10s
-int trailerCamMode;         // 0 - Auto, 1 - Off, 2 - On
-int serialPlotter;          // 0 - Off, 1 - Slow, 2 - Fast
+int frontCamTimeout; // after the rear camera the front one turns on for 10s
+int trailerCamMode;  // 0 - Auto, 1 - Off, 2 - On
+int serialPlotter;   // 0 - Off, 1 - Slow, 2 - Fast
+int loopDelay;
 bool autoSwitch;            // when true, camera auto-switching logic applies
 bool serialOverUDP = false; // when true, the data get sent to a PC
 
@@ -86,6 +91,18 @@ void initSPIFFS()
     Serial.println("An error has occurred while mounting SPIFFS");
   }
   Serial.println("SPIFFS mounted successfully");
+}
+
+void initCAN()
+{
+  Serial.println("CAN init...");
+  CAN_cfg.speed = CAN_SPEED_1000KBPS;
+  CAN_cfg.tx_pin_id = GPIO_NUM_5;
+  CAN_cfg.rx_pin_id = GPIO_NUM_4;
+  CAN_cfg.rx_queue = xQueueCreate(10, sizeof(CAN_frame_t));
+  // start CAN Module
+  ESP32Can.CANInit();
+  Serial.println("done!");
 }
 
 int SerialPrintf(char *format, ...)
@@ -200,6 +217,7 @@ String getOutputStates()
   myArray["trailerCamMode"] = trailerCamMode;
   myArray["serialPlotter"] = serialPlotter;
   myArray["souIP"] = souIP;
+  myArray["loopDelay"] = loopDelay;
 
   // sending checkboxes
   myArray["autoSwitch"] = autoSwitch;
@@ -239,7 +257,8 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
       serialOverUDP = webmsg["serialOverUDP"];
     if (webmsg.hasOwnProperty("souIP"))
       souIP = webmsg["souIP"];
-
+    if (webmsg.hasOwnProperty("loopDelay"))
+      loopDelay = atoi(webmsg["loopDelay"]);
     writeEEPROMSettings();
     notifyClients(getOutputStates());
   }
@@ -278,6 +297,7 @@ void readEEPROMSettings()
   autoSwitch = preferences.getBool("autoSwitch", true);
   trailerCamMode = preferences.getInt("trailerCamMode", 0);
   souIP = preferences.getString("souIP", "192.168.1.12");
+  loopDelay = preferences.getInt("loopDelay", 10);
 }
 
 void writeEEPROMSettings()
@@ -287,6 +307,7 @@ void writeEEPROMSettings()
   preferences.putBool("autoSwitch", autoSwitch);
   preferences.putInt("trailerCamMode", trailerCamMode);
   preferences.putString("souIP", souIP);
+  preferences.putInt("loopDelay", loopDelay);
 }
 
 void DetectVideoStream(int vr[6], int val, unsigned long timing)
@@ -329,6 +350,7 @@ void setup()
 
   initSPIFFS();
   initWebSocket();
+  initCAN();
 
   // Route for root / web page
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
@@ -390,7 +412,31 @@ void loop()
   int vdtrail[6] = {0, 0, 0, 0, 0, 0};
   while (sync + 1000 > millis())
   {
-    delay(10);
+    CAN_frame_t rx_frame;
+    // receive next CAN frame from queue
+    if (xQueueReceive(CAN_cfg.rx_queue, &rx_frame, 3 * portTICK_PERIOD_MS) == pdTRUE)
+    {
+      SerialPrintf("0x%08x,", rx_frame.MsgID);
+      SerialPrintf("%d,", rx_frame.FIR.B.DLC);
+      if (rx_frame.FIR.B.FF == CAN_frame_std)
+        SerialPrintf("STD,");
+      else
+        SerialPrintf("EXT,");
+
+      if (rx_frame.FIR.B.RTR == CAN_RTR)
+        SerialPrintf("Y,");
+      else
+      {
+        SerialPrintf("N,");
+        for (int i = 0; i < 8; i++)
+        {
+          SerialPrintf("%02x,", rx_frame.data.u8[i]);
+        }
+        SerialPrintf("\n");
+      }
+    }
+
+    delay(loopDelay);
     v1cur = analogRead(rearCameraSensor);
     DetectVideoStream(vdrear, v1cur, millis());
     v2cur = analogRead(trailCameraSensor);
