@@ -29,13 +29,6 @@
 #define intCamera 3
 #define trailCamera 4
 
-// Macros
-#define souPrintf(args...)               \
-  char sou_Buf[64];                      \
-  char *temp = sou_Buf;                  \
-  snprintf(temp, sizeof(sou_Buf), args); \
-  souSend(temp);
-//
 const char *ssid = WIFISSID_2;
 const char *password = WIFIPASS_2;
 const char *softwareVersion = "0.002";
@@ -95,14 +88,30 @@ void initSPIFFS()
   Serial.println("SPIFFS mounted successfully");
 }
 
-void souSend(char *Data)
+int SerialPrintf(char *format, ...)
 {
+  int ret;
+  va_list arg;
+  char loc_buf[64];
+  char *temp = loc_buf;
+  va_start(arg, format);
+  ret = vsnprintf(temp, sizeof(loc_buf), format, arg);
+  va_end(arg);
   if (serialOverUDP)
   {
     Udp.beginPacket(souIP.c_str(), 11000);
-    Udp.println(Data);
+    ret = Udp.print(temp);
     Udp.endPacket();
   }
+  else
+  {
+    ret = Serial.print(temp);
+  }
+  if (temp != loc_buf)
+  {
+    free(temp);
+  }
+  return ret;
 }
 
 void FrontCameraOn()
@@ -389,16 +398,15 @@ void loop()
 
     if (serialPlotter == 2)
     {
-      Serial.printf("Rear\tTrailer\n");
-      Serial.printf("%d\t%d\n", v1cur, v2cur);
-      souPrintf("%d,%d", v1cur, v2cur);
+      Serial.println("Rear,Trailer");
+      SerialPrintf("%d,%d\n", v1cur, v2cur);
     }
   }
 
   if (serialPlotter == 1)
   {
-    Serial.printf("Rear_frames\tTrailer_frames\tT1\tT2\n%d\t%d\t%d\t%d\n", vdrear[0], vdtrail[0], vdrear[1], vdtrail[1]);
-    souPrintf("%d,%d,%d,%d", vdrear[0], vdtrail[0], vdrear[1], vdtrail[1]);
+    Serial.println("Rear_frames,Trailer_frames,T1,T2");
+    SerialPrintf("%d,%d,%d,%d\n", vdrear[0], vdtrail[0], vdrear[1], vdtrail[1]);
   }
   rearCamActive = vdrear[0] >= 20 && vdrear[0] <= 40;
   trailCamActive = vdtrail[0] >= 36 && vdtrail[0] <= 40 && (vdtrail[1] == 23 || vdtrail[1] == 26);

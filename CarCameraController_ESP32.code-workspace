@@ -9,7 +9,8 @@
         "IoTWorkbench.DevicePath": "Device",
         "files.associations": {
             "string": "cpp",
-            "random": "cpp"
+            "random": "cpp",
+            "*.tcc": "cpp"
         }
     }
 }
