@@ -1,14 +1,27 @@
+// CVideo libs
 #include <ESP_8_BIT_GFX.h>
-#include <Arduino.h>
-#include <WiFi.h>
+
+// Webserver libs
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
-#include <WiFiUdp.h>
-#include "SPIFFS.h"
-#include <ESP32CAN.h>
-#include <CAN_config.h>
-#include <Arduino_JSON.h>
 #include <AsyncElegantOTA.h>
+// Network libs
+#include <WiFi.h>
+#include <WiFiUdp.h>
+// CAN libs
+#include <driver/can.h>
+#include <driver/gpio.h>
+#include <esp_system.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/queue.h"
+#include "freertos/semphr.h"
+// Everything else
+#include "SPIFFS.h"
+#include <Arduino_JSON.h>
+#include <Arduino.h>
 #include <Preferences.h>
 #include <DefsWiFi.h>
 
@@ -48,9 +61,6 @@ AsyncWebSocket ws("/ws");
 
 // Create a UDP client
 WiFiUDP Udp;
-
-// CAN device
-CAN_device_t CAN_cfg;
 
 // EEPROM settings
 Preferences preferences;
@@ -95,14 +105,42 @@ void initSPIFFS()
 
 void initCAN()
 {
-  Serial.println("CAN init...");
-  CAN_cfg.speed = CAN_SPEED_1000KBPS;
-  CAN_cfg.tx_pin_id = GPIO_NUM_5;
-  CAN_cfg.rx_pin_id = GPIO_NUM_4;
-  CAN_cfg.rx_queue = xQueueCreate(10, sizeof(CAN_frame_t));
-  // start CAN Module
-  ESP32Can.CANInit();
-  Serial.println("done!");
+  can_general_config_t general_config = {
+      .mode = CAN_MODE_NORMAL,
+      .tx_io = (gpio_num_t)GPIO_NUM_5,
+      .rx_io = (gpio_num_t)GPIO_NUM_4,
+      .clkout_io = (gpio_num_t)CAN_IO_UNUSED,
+      .bus_off_io = (gpio_num_t)CAN_IO_UNUSED,
+      .tx_queue_len = 100,
+      .rx_queue_len = 65,
+      .alerts_enabled = CAN_ALERT_NONE,
+      .clkout_divider = 0};
+  can_timing_config_t timing_config = CAN_TIMING_CONFIG_1MBITS();
+  can_filter_config_t filter_config = CAN_FILTER_CONFIG_ACCEPT_ALL();
+  esp_err_t error;
+
+  error = can_driver_install(&general_config, &timing_config, &filter_config);
+  if (error == ESP_OK)
+  {
+    Serial.println("CAN Driver installation success...");
+  }
+  else
+  {
+    Serial.println("CAN Driver installation fail...");
+    return;
+  }
+
+  // start CAN driver
+  error = can_start();
+  if (error == ESP_OK)
+  {
+    Serial.println("CAN Driver start success...");
+  }
+  else
+  {
+    Serial.println("CAN Driver start FAILED...");
+    return;
+  }
 }
 
 int SerialPrintf(char *format, ...)
@@ -412,31 +450,20 @@ void loop()
   int vdtrail[6] = {0, 0, 0, 0, 0, 0};
   while (sync + 1000 > millis())
   {
-    CAN_frame_t rx_frame;
-    // receive next CAN frame from queue
-    if (xQueueReceive(CAN_cfg.rx_queue, &rx_frame, 3 * portTICK_PERIOD_MS) == pdTRUE)
+    can_message_t rx_frame;
+    if (can_receive(&rx_frame, pdMS_TO_TICKS(loopDelay)) == ESP_OK)
     {
-      SerialPrintf("0x%08x,", rx_frame.MsgID);
-      SerialPrintf("%d,", rx_frame.FIR.B.DLC);
-      if (rx_frame.FIR.B.FF == CAN_frame_std)
-        SerialPrintf("STD,");
-      else
-        SerialPrintf("EXT,");
-
-      if (rx_frame.FIR.B.RTR == CAN_RTR)
-        SerialPrintf("Y,");
-      else
+      SerialPrintf("timestamp,0x%08x,", rx_frame.identifier);
+      SerialPrintf("%d,", rx_frame.data_length_code);
+      SerialPrintf("%d", rx_frame.flags);
+      for (int i = 0; i < 7; i++)
       {
-        SerialPrintf("N,");
-        for (int i = 0; i < 8; i++)
-        {
-          SerialPrintf("%02x,", rx_frame.data.u8[i]);
-        }
-        SerialPrintf("\n");
+        SerialPrintf("%02x,", rx_frame.data[i]);
       }
+      SerialPrintf("%02x", rx_frame.data[7]);
+      SerialPrintf("\n");
     }
-
-    delay(loopDelay);
+    // delay(loopDelay);
     v1cur = analogRead(rearCameraSensor);
     DetectVideoStream(vdrear, v1cur, millis());
     v2cur = analogRead(trailCameraSensor);
