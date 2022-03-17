@@ -45,7 +45,7 @@
 
 const char *ssid = WIFISSID_2;
 const char *password = WIFIPASS_2;
-const char *softwareVersion = "0.002";
+const char *softwareVersion = "0.1";
 
 const char *camnames[4] = {"Rear", "Front",
                            "Internal", "Trailer"};
@@ -81,6 +81,7 @@ int clickType = 0;
 int clickLength = 0;
 bool rearCamActive = false;
 bool trailCamActive = false;
+int canInterface;
 
 int v1min = 0;
 int v1max = 0;
@@ -260,6 +261,7 @@ String getOutputStates()
   // sending checkboxes
   myArray["autoSwitch"] = autoSwitch;
   myArray["serialOverUDP"] = serialOverUDP;
+  myArray["canInterface"] = canInterface;
 
   String jsonString = JSON.stringify(myArray);
   return jsonString;
@@ -277,26 +279,30 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
   {
     data[len] = 0;
     JSONVar webmsg = JSON.parse((char *)data);
+    // values
     if (webmsg.hasOwnProperty("currentCamera"))
     {
       currentCamera = atoi(webmsg["currentCamera"]);
       EnableCamera(currentCamera);
     }
-
     if (webmsg.hasOwnProperty("frontCamTimeout"))
       frontCamTimeout = atoi(webmsg["frontCamTimeout"]);
     if (webmsg.hasOwnProperty("serialPlotter"))
       serialPlotter = atoi(webmsg["serialPlotter"]);
-    if (webmsg.hasOwnProperty("autoSwitch"))
-      autoSwitch = webmsg["autoSwitch"];
     if (webmsg.hasOwnProperty("trailerCamMode"))
       trailerCamMode = atoi(webmsg["trailerCamMode"]);
-    if (webmsg.hasOwnProperty("serialOverUDP"))
-      serialOverUDP = webmsg["serialOverUDP"];
     if (webmsg.hasOwnProperty("souIP"))
       souIP = webmsg["souIP"];
     if (webmsg.hasOwnProperty("loopDelay"))
       loopDelay = atoi(webmsg["loopDelay"]);
+    if (webmsg.hasOwnProperty("canInterface"))
+      canInterface = atoi(webmsg["canInterface"]);
+    // checkboxes
+    if (webmsg.hasOwnProperty("autoSwitch"))
+      autoSwitch = webmsg["autoSwitch"];
+    if (webmsg.hasOwnProperty("serialOverUDP"))
+      serialOverUDP = webmsg["serialOverUDP"];
+
     writeEEPROMSettings();
     notifyClients(getOutputStates());
   }
@@ -333,6 +339,7 @@ void readEEPROMSettings()
   frontCamTimeout = preferences.getInt("frontCamTimeout", 10000);
   serialPlotter = preferences.getInt("serialPlotter", 0);
   autoSwitch = preferences.getBool("autoSwitch", true);
+  canInterface = preferences.getInt("canInterface", 0);
   trailerCamMode = preferences.getInt("trailerCamMode", 0);
   souIP = preferences.getString("souIP", "192.168.1.12");
   loopDelay = preferences.getInt("loopDelay", 10);
@@ -343,6 +350,7 @@ void writeEEPROMSettings()
   preferences.putInt("frontCamTimeout", frontCamTimeout);
   preferences.putInt("serialPlotter", serialPlotter);
   preferences.putBool("autoSwitch", autoSwitch);
+  preferences.putInt("canInterface", canInterface);
   preferences.putInt("trailerCamMode", trailerCamMode);
   preferences.putString("souIP", souIP);
   preferences.putInt("loopDelay", loopDelay);
@@ -411,7 +419,7 @@ void Displaystats()
   videoOut.setCursor(0, 16);
   videoOut.setTextColor(0x00);
   videoOut.setTextSize(2);
-  videoOut.print(" Wifi: ");
+  videoOut.print(" IP: ");
   if (WifiStatus)
     videoOut.println(WiFi.localIP());
   else
@@ -433,10 +441,9 @@ void Displaystats()
   else
     videoOut.println("off");
 
-  // videoOut.printf(" R: %d-%d,%d\n", v1min, v1max, v1max - v1min);
-  // videoOut.printf(" T: %d-%d,%d\n", v2min, v2max, v2max - v2min);
+  videoOut.printf(" CAN bus mode: %d\n", canInterface);
 
-  videoOut.printf(" Camera: %d\n", currentCamera);
+  videoOut.printf(" Camera: %s\n", camnames[currentCamera - 1]);
 
   videoOut.printf(" Uptime: %ds\n", millis() / 1000);
   videoOut.printf(" RAM: %d\n", ESP.getFreeHeap());
@@ -451,17 +458,20 @@ void loop()
   while (sync + 1000 > millis())
   {
     can_message_t rx_frame;
-    if (can_receive(&rx_frame, pdMS_TO_TICKS(loopDelay)) == ESP_OK)
+    if ((can_receive(&rx_frame, pdMS_TO_TICKS(loopDelay)) == ESP_OK) && (canInterface != 0))
     {
-      SerialPrintf("timestamp,0x%08x,", rx_frame.identifier);
-      SerialPrintf("%d,", rx_frame.data_length_code);
-      SerialPrintf("%d", rx_frame.flags);
-      for (int i = 0; i < 7; i++)
+      if (canInterface == 2) // CAN sniffing mode
       {
-        SerialPrintf("%02x,", rx_frame.data[i]);
+        SerialPrintf("timestamp,0x%08x,", rx_frame.identifier);
+        SerialPrintf("%d,", rx_frame.data_length_code);
+        SerialPrintf("%d", rx_frame.flags);
+        for (int i = 0; i < 7; i++)
+        {
+          SerialPrintf("%02x,", rx_frame.data[i]);
+        }
+        SerialPrintf("%02x", rx_frame.data[7]);
+        SerialPrintf("\n");
       }
-      SerialPrintf("%02x", rx_frame.data[7]);
-      SerialPrintf("\n");
     }
     // delay(loopDelay);
     v1cur = analogRead(rearCameraSensor);

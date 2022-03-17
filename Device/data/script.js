@@ -41,6 +41,7 @@ function onMessage(event) {
     document.getElementById("serialPlotter").value = myObj["serialPlotter"];
     document.getElementById("souIP").value = myObj["souIP"];
     document.getElementById("loopDelay").value = myObj["loopDelay"];
+    document.getElementById("canInterface").value = myObj["canInterface"];
     // checkboxes
     document.getElementById("autoSwitch").checked = myObj["autoSwitch"];
     document.getElementById("serialOverUDP").checked = myObj["serialOverUDP"];

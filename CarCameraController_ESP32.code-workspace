@@ -10,7 +10,8 @@
         "files.associations": {
             "string": "cpp",
             "random": "cpp",
-            "*.tcc": "cpp"
+            "*.tcc": "cpp",
+            "cstdint": "cpp"
         }
     }
 }

@@ -57,6 +57,13 @@
           <option value="100">100</option>
         </select>
         <br>
+        <label for="canInterface">CAN bus mode:</label>
+        <select id="canInterface" onchange="enterNumber(this)">
+          <option value="0">Disabled</option>
+          <option value="1">Enabled</option>
+          <option value="2">Sniffing</option>
+        </select>
+        <br>
         <label for="souIP">SOU IP:</label>
         <input type="text" id="souIP" onchange="enterNumber(this)">
       </div>
@@ -67,8 +74,6 @@
           <input type="checkbox" onchange="toggleCheckbox(this)" id="autoSwitch">
           <span class="slider"></span>
         </label>
-      </div>
-      <div class="card">
         <p class="card-title">Serial over UDP</p>
         <label class="switch">
           <input type="checkbox" onchange="toggleCheckbox(this)" id="serialOverUDP">
