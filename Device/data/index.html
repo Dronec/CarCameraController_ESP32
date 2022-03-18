@@ -19,7 +19,7 @@
       <div class="card">
         <p class="card-title">Settings</p>
         <label for="currentCamera">Camera:</label>
-        <select id="currentCamera" onchange="enterNumber(this)">
+        <select id="currentCamera" onchange="enterValue(this)">
           <option value="1">Rear</option>
           <option value="2">Front</option>
           <option value="3">Internal display</option>
@@ -27,28 +27,29 @@
         </select>
         <br>
         <label for="frontCamTimeout">FC Timeout:</label>
-        <select id="frontCamTimeout" onchange="enterNumber(this)">
+        <select id="frontCamTimeout" onchange="enterValue(this)">
           <option value="1000">1s</option>
           <option value="5000">5s</option>
           <option value="10000">10s</option>
         </select>
         <br>
         <label for="trailerCamMode">Trailer cam mode:</label>
-        <select id="trailerCamMode" onchange="enterNumber(this)">
+        <select id="trailerCamMode" onchange="enterValue(this)">
           <option value="0">Auto</option>
           <option value="1">Off</option>
           <option value="2">On</option>
         </select>
         <br>
-        <label for="serialPlotter">Serial plotter:</label>
-        <select id="serialPlotter" onchange="enterNumber(this)">
+        <label for="serialOutput">Serial output:</label>
+        <select id="serialOutput" onchange="enterValue(this)">
           <option value="0">Off</option>
-          <option value="1">Slow</option>
-          <option value="2">Fast</option>
+          <option value="1">Slow frames</option>
+          <option value="2">Fast frames</option>
+          <option value="3">CANbus dump</option>
         </select>
         <br>
         <label for="loopDelay">Loop delay:</label>
-        <select id="loopDelay" onchange="enterNumber(this)">
+        <select id="loopDelay" onchange="enterValue(this)">
           <option value="1">1</option>
           <option value="5">5</option>
           <option value="10">10</option>
@@ -58,14 +59,31 @@
         </select>
         <br>
         <label for="canInterface">CAN bus mode:</label>
-        <select id="canInterface" onchange="enterNumber(this)">
-          <option value="0">Disabled</option>
-          <option value="1">Enabled</option>
-          <option value="2">Sniffing</option>
+        <select id="canInterface" onchange="enterValue(this)">
+          <option value="0">Normal (read/write)</option>
+          <option value="1">No ack</option>
+          <option value="2">Read-only</option>
+        </select>
+        <br>
+        <label for="canSpeed">CAN bus speed:</label>
+        <select id="canSpeed" onchange="enterValue(this)">
+          <option value="25">25 Kbit/s</option>
+          <option value="50">50 Kbit/s</option>
+          <option value="100">100 Kbit/s</option>
+          <option value="125">125 Kbit/s</option>
+          <option value="250">250 Kbit/s</option>
+          <option value="500">500 Kbit/s</option>
+          <option value="800">800 Kbit/s</option>
+          <option value="1000">1000 Kbit/s</option>
         </select>
         <br>
         <label for="souIP">SOU IP:</label>
-        <input type="text" id="souIP" onchange="enterNumber(this)">
+        <input type="text" id="souIP" onchange="enterValue(this)">
+      </div>
+
+      <div class="card">
+        <p class="card-title">Commands</p>
+        <button id="0" onClick="runCommand(this)">Reset ESP32</button>
       </div>
 
       <div class="card">

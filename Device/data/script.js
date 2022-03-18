@@ -27,49 +27,37 @@ function onMessage(event) {
     var myObj = JSON.parse(event.data);
     console.log(myObj);
     // stats
-    document.getElementById("camera").innerHTML = myObj["camera"];
-    document.getElementById("ssid").innerHTML = myObj["ssid"];
-    document.getElementById("softwareVersion").innerHTML = myObj["softwareVersion"];
-    document.getElementById("rearCamActive").innerHTML = myObj["rearCamActive"];
-    document.getElementById("trailCamActive").innerHTML = myObj["trailCamActive"];
-    document.getElementById("ram").innerHTML = myObj["ram"];
-    document.getElementById("uptime").innerHTML = myObj["uptime"];
+    stats = myObj["stats"];
+    for (var k in stats) {
+        console.log(k, stats[k]);
+        document.getElementById(k).innerHTML = stats[k];
+    }
     // values
-    document.getElementById("currentCamera").value = myObj["currentCamera"];
-    document.getElementById("frontCamTimeout").value = myObj["frontCamTimeout"];
-    document.getElementById("trailerCamMode").value = myObj["trailerCamMode"];
-    document.getElementById("serialPlotter").value = myObj["serialPlotter"];
-    document.getElementById("souIP").value = myObj["souIP"];
-    document.getElementById("loopDelay").value = myObj["loopDelay"];
-    document.getElementById("canInterface").value = myObj["canInterface"];
+    settings = myObj["settings"];
+    for (var k in settings) {
+        console.log(k, settings[k]);
+        document.getElementById(k).value = settings[k];
+    }
     // checkboxes
-    document.getElementById("autoSwitch").checked = myObj["autoSwitch"];
-    document.getElementById("serialOverUDP").checked = myObj["serialOverUDP"];
-    //if (myObj["camera"] == "rear")
-    //    document.getElementById("0").checked = false;
-    //else
-    //    document.getElementById("0").checked = true;
-    //console.log(event.data);
+    checkboxes = myObj["checkboxes"];
+    for (var k in checkboxes) {
+        console.log(k, checkboxes[k]);
+        document.getElementById(k).checked = checkboxes[k];
+    }
 }
 
-// Send Requests to Control GPIOs
+// Checkboxes
 function toggleCheckbox(element) {
     console.log('{"' + element.id + '":' + element.checked + '}');
     websocket.send('{"' + element.id + '":' + element.checked + '}');
-    /*if (element.checked){
-        document.getElementById(element.id+"s").innerHTML = "ON";
-    }
-    else {
-        document.getElementById(element.id+"s").innerHTML = "OFF"; 
-    }*/
 }
-function enterNumber(element) {
+// Settings/values
+function enterValue(element) {
     console.log('{"' + element.id + '":"' + element.value + '"}');
     websocket.send('{"' + element.id + '":"' + element.value + '"}');
-    /*if (element.checked){
-        document.getElementById(element.id+"s").innerHTML = "ON";
-    }
-    else {
-        document.getElementById(element.id+"s").innerHTML = "OFF"; 
-    }*/
+}
+// Running commands
+function runCommand(element) {
+    console.log('{"command":"' + element.id + '"}');
+    websocket.send('{"command":"' + element.id + '"}');
 }
