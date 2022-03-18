@@ -83,6 +83,7 @@ bool rearCamActive = false;
 bool trailCamActive = false;
 int canInterface;
 int canSpeed;
+int rearCamSensor;
 
 int v1min = 0;
 int v1max = 0;
@@ -287,6 +288,7 @@ String getOutputStates()
   myArray["settings"]["loopDelay"] = loopDelay;
   myArray["settings"]["canSpeed"] = canSpeed;
   myArray["settings"]["canInterface"] = canInterface;
+  myArray["settings"]["rearCamSensor"] = rearCamSensor;
 
   // sending checkboxes
   myArray["checkboxes"]["autoSwitch"] = autoSwitch;
@@ -328,6 +330,8 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
       canInterface = atoi(webmsg["canInterface"]);
     if (webmsg.hasOwnProperty("canSpeed"))
       canSpeed = atoi(webmsg["canSpeed"]);
+    if (webmsg.hasOwnProperty("rearCamSensor"))
+      rearCamSensor = atoi(webmsg["rearCamSensor"]);
     // checkboxes
     if (webmsg.hasOwnProperty("autoSwitch"))
       autoSwitch = webmsg["autoSwitch"];
@@ -382,6 +386,7 @@ void readEEPROMSettings()
   trailerCamMode = preferences.getInt("trailerCamMode", 0);
   souIP = preferences.getString("souIP", "192.168.1.12");
   loopDelay = preferences.getInt("loopDelay", 10);
+  rearCamSensor = preferences.getInt("rearCamSensor", 10);
 }
 
 void writeEEPROMSettings()
@@ -394,6 +399,7 @@ void writeEEPROMSettings()
   preferences.putInt("trailerCamMode", trailerCamMode);
   preferences.putString("souIP", souIP);
   preferences.putInt("loopDelay", loopDelay);
+  preferences.putInt("rearCamSensor", rearCamSensor);
 }
 
 void DetectVideoStream(int vr[6], int val, unsigned long timing)
@@ -532,7 +538,7 @@ void loop()
     Serial.println("Rear_frames,Trailer_frames,T1,T2");
     SerialPrintf("%d,%d,%d,%d\n", vdrear[0], vdtrail[0], vdrear[1], vdtrail[1]);
   }
-  rearCamActive = vdrear[0] >= 20 && vdrear[0] <= 40;
+  rearCamActive = vdrear[0] >= rearCamSensor && vdrear[0] <= 50;
   trailCamActive = vdtrail[0] >= 36 && vdtrail[0] <= 40 && (vdtrail[1] == 23 || vdtrail[1] == 26);
 
   if (autoSwitch)

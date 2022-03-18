@@ -79,6 +79,11 @@
         <br>
         <label for="souIP">SOU IP:</label>
         <input type="text" id="souIP" onchange="enterValue(this)">
+        <br>
+        <label for="rearCamSensor">Rear cam:</label>
+        <input id="rearCamSensor" type="range" min="10" max="50" value="10" onchange="enterValue(this)"
+          oninput="this.nextElementSibling.value = this.value">
+        <output>10</output>
       </div>
 
       <div class="card">
