@@ -29,9 +29,9 @@
 #define ON HIGH
 #define OFF LOW
 
-#define longClick 1500       // long button click 1.5s
-#define rearCameraSensor 36  // for detecting videosignal
-#define trailCameraSensor 39 // for detecting videosignal
+#define longClick 1500   // long button click 1.5s
+#define reverseInput 13  // reverse signal input
+#define reverseOutput 27 // reverse signal output
 
 #define pinA 23 // 13, controls 1-2
 #define pinB 15 // 5, controls 3-4
@@ -43,8 +43,8 @@
 #define intCamera 3
 #define trailCamera 4
 
-const char *ssid = WIFISSID_2;
-const char *password = WIFIPASS_2;
+const char *ssid = WIFISSID_M;
+const char *password = WIFIPASS_M;
 const char *softwareVersion = "0.2";
 
 const char *camnames[4] = {"Rear", "Front",
@@ -128,7 +128,7 @@ void initCAN()
     timing_config = CAN_TIMING_CONFIG_50KBITS();
     break;
   case 100:
-    timing_config = CAN_TIMING_CONFIG_100KBITS();
+    timing_config = CAN_TIMING_CONFIG_100KBITS(); // Hyundai Santa Fe 2015 MM_CAN
     break;
   case 125:
     timing_config = CAN_TIMING_CONFIG_125KBITS();
@@ -137,7 +137,7 @@ void initCAN()
     timing_config = CAN_TIMING_CONFIG_250KBITS();
     break;
   case 500:
-    timing_config = CAN_TIMING_CONFIG_500KBITS();
+    timing_config = CAN_TIMING_CONFIG_500KBITS(); // Hyundai Santa Fe 2015 HS_CAN
     break;
   case 800:
     timing_config = CAN_TIMING_CONFIG_800KBITS();
@@ -402,19 +402,6 @@ void writeEEPROMSettings()
   preferences.putInt("rearCamSensor", rearCamSensor);
 }
 
-void DetectVideoStream(int vr[6], int val, unsigned long timing)
-{
-  vr[3] = vr[4];
-  vr[4] = vr[5];
-  vr[5] = val;
-  if (vr[4] < (vr[3] - 0) && vr[4] < (vr[5] - 0))
-  {
-    vr[1] = (vr[1] + (timing - vr[2])) / 2;
-    vr[2] = timing;
-    vr[0]++;
-  }
-}
-
 void setup()
 {
   Serial.begin(115200);
@@ -424,8 +411,9 @@ void setup()
   readEEPROMSettings();
   // end settings
 
-  // tuning analog reader
-  analogSetClockDiv(255);
+  // setting up reverse control
+  pinMode(reverseInput, INPUT_PULLUP);
+  pinMode(reverseOutput, OUTPUT);
   //
 
   videoOut.begin();
@@ -436,7 +424,7 @@ void setup()
   pinMode(pinD, OUTPUT);
 
   // BackCameraOn();
-  EnableCamera(3);
+  EnableCamera(rearCamera);
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
 
@@ -497,49 +485,26 @@ void Displaystats()
 
 void loop()
 {
-  sync = millis();
-
-  int vdrear[6] = {0, 0, 0, 0, 0, 0};
-  int vdtrail[6] = {0, 0, 0, 0, 0, 0};
-  while (sync + 1000 > millis())
+  can_message_t rx_frame;
+  if (can_receive(&rx_frame, pdMS_TO_TICKS(loopDelay)) == ESP_OK)
   {
-    can_message_t rx_frame;
-    if (can_receive(&rx_frame, pdMS_TO_TICKS(loopDelay)) == ESP_OK)
+    if (serialOutput == 3) // CAN sniffing mode
     {
-      if (serialOutput == 3) // CAN sniffing mode
+      SerialPrintf("timestamp,0x%08x,", rx_frame.identifier);
+      SerialPrintf("%d,", rx_frame.data_length_code);
+      SerialPrintf("%d", rx_frame.flags);
+      for (int i = 0; i < 7; i++)
       {
-        SerialPrintf("timestamp,0x%08x,", rx_frame.identifier);
-        SerialPrintf("%d,", rx_frame.data_length_code);
-        SerialPrintf("%d", rx_frame.flags);
-        for (int i = 0; i < 7; i++)
-        {
-          SerialPrintf("%02x,", rx_frame.data[i]);
-        }
-        SerialPrintf("%02x", rx_frame.data[7]);
-        SerialPrintf("\n");
+        SerialPrintf("%02x,", rx_frame.data[i]);
       }
-    }
-    if (static_cast<can_mode_t>(canInterface) == CAN_MODE_LISTEN_ONLY)
-      delay(loopDelay);
-    v1cur = analogRead(rearCameraSensor);
-    DetectVideoStream(vdrear, v1cur, millis());
-    v2cur = analogRead(trailCameraSensor);
-    DetectVideoStream(vdtrail, v2cur, millis());
-
-    if (serialOutput == 2)
-    {
-      Serial.println("Rear,Trailer");
-      SerialPrintf("%d,%d\n", v1cur, v2cur);
+      SerialPrintf("%02x", rx_frame.data[7]);
+      SerialPrintf("\n");
     }
   }
+  if (static_cast<can_mode_t>(canInterface) == CAN_MODE_LISTEN_ONLY)
+    delay(loopDelay);
 
-  if (serialOutput == 1)
-  {
-    Serial.println("Rear_frames,Trailer_frames,T1,T2");
-    SerialPrintf("%d,%d,%d,%d\n", vdrear[0], vdtrail[0], vdrear[1], vdtrail[1]);
-  }
-  rearCamActive = vdrear[0] >= rearCamSensor && vdrear[0] <= 50;
-  trailCamActive = vdtrail[0] >= 36 && vdtrail[0] <= 40 && (vdtrail[1] == 23 || vdtrail[1] == 26);
+  rearCamActive = !digitalRead(reverseInput);
 
   if (autoSwitch)
   {
