@@ -38,16 +38,17 @@
 #define pinC 2  // 6, controls 8-9
 #define pinD 22 // 12, controls 10-11
 
+#define noCamera 0
 #define rearCamera 1
 #define frontCamera 2
 #define intCamera 3
 #define trailCamera 4
 
-const char *ssid = WIFISSID_M;
-const char *password = WIFIPASS_M;
-const char *softwareVersion = "0.2";
+const char *ssid = WIFISSID_2;
+const char *password = WIFIPASS_2;
+const char *softwareVersion = "0.8";
 
-const char *camnames[4] = {"Rear", "Front",
+const char *camnames[5] = {"Off", "Rear", "Front",
                            "Internal", "Trailer"};
 
 // Analog display
@@ -66,33 +67,22 @@ WiFiUDP Udp;
 Preferences preferences;
 
 int frontCamTimeout; // after the rear camera the front one turns on for 10s
-int trailerCamMode;  // 0 - Auto, 1 - Off, 2 - On
-int serialOutput;    // 0 - Off, 1 - Slow, 2 - Fast
+int trailerCamMode;  // 1 - Off (Rear camera), 2 - On (Trailer camera)
+int serialOutput;    // 0 - Off, 1 - Serial ping, 3 - CANBUS dump
 int loopDelay;
 bool autoSwitch;            // when true, camera auto-switching logic applies
 bool serialOverUDP = false; // when true, the data get sent to a PC
 
-String souIP;
-
-unsigned long sync = 0;                 // the last time the output pin was toggled
-unsigned long frontCameraAutoTimer = 0; // the last time the output pin was toggled
+unsigned long sync = 0;
+unsigned long frontCameraAutoTimer = 0; // Used for intelligent switching between rear and front cameras
 
 int clickType = 0;
 int clickLength = 0;
-bool rearCamActive = false;
-bool trailCamActive = false;
+bool reverseGearActive;
 int canInterface;
 int canSpeed;
-int rearCamSensor;
 
-int v1min = 0;
-int v1max = 0;
-int v1cur = 0;
-int v2min = 0;
-int v2max = 0;
-int v2cur = 0;
-
-int currentCamera = 3; // 1 - rear, 2 - front, 3 - internal, 4 - trailer;
+int currentCamera = 0; // 0 - off, 1 - rear, 2 - front, 3 - internal, 4 - trailer;
 
 bool WifiStatus = false;
 
@@ -184,7 +174,7 @@ int SerialPrintf(char *format, ...)
   va_end(arg);
   if (serialOverUDP)
   {
-    Udp.beginPacket(souIP.c_str(), 11000);
+    Udp.beginPacket("255.255.255.255", 11000);
     ret = Udp.print(temp);
     Udp.endPacket();
   }
@@ -202,23 +192,25 @@ int SerialPrintf(char *format, ...)
 void FrontCameraOn()
 {
   EnableCamera(frontCamera);
-  currentCamera = frontCamera;
 }
 void BackCameraOn()
 {
-  if (rearCamActive)
+  if (reverseGearActive)
   {
-    if ((trailerCamMode == 0 && trailCamActive) || (trailerCamMode == 2))
+    if ((trailerCamMode == 2))
     {
       EnableCamera(trailCamera);
-      currentCamera = trailCamera;
     }
     else
     {
       EnableCamera(rearCamera);
-      currentCamera = rearCamera;
     }
   }
+  frontCameraAutoTimer = 0;
+}
+void AllCamerasOff()
+{
+  EnableCamera(noCamera);
   frontCameraAutoTimer = 0;
 }
 /*
@@ -239,32 +231,37 @@ void EnableCamera(uint cameraN)
     digitalWrite(pinC, LOW);
     digitalWrite(pinD, LOW);
     digitalWrite(pinA, HIGH);
+    digitalWrite(reverseOutput, HIGH);
     break;
   case frontCamera:
     digitalWrite(pinA, LOW);
     digitalWrite(pinC, LOW);
     digitalWrite(pinD, LOW);
     digitalWrite(pinB, HIGH);
+    digitalWrite(reverseOutput, HIGH);
     break;
   case intCamera:
     digitalWrite(pinA, LOW);
     digitalWrite(pinB, LOW);
     digitalWrite(pinD, LOW);
     digitalWrite(pinC, HIGH);
+    digitalWrite(reverseOutput, HIGH);
     break;
   case trailCamera:
     digitalWrite(pinA, LOW);
     digitalWrite(pinB, LOW);
     digitalWrite(pinC, LOW);
     digitalWrite(pinD, HIGH);
+    digitalWrite(reverseOutput, HIGH);
     break;
   default:
     digitalWrite(pinA, LOW);
     digitalWrite(pinB, LOW);
     digitalWrite(pinC, LOW);
     digitalWrite(pinD, LOW);
+    digitalWrite(reverseOutput, LOW);
   }
-  // Serial.printf("Camera: %d\n", cameraN);
+  currentCamera = cameraN;
 }
 
 String getOutputStates()
@@ -273,9 +270,8 @@ String getOutputStates()
   // sending stats
   myArray["stats"]["ssid"] = ssid;
   myArray["stats"]["softwareVersion"] = softwareVersion;
-  myArray["stats"]["rearCamActive"] = rearCamActive;
-  myArray["stats"]["trailCamActive"] = trailCamActive;
-  myArray["stats"]["camera"] = camnames[currentCamera - 1];
+  myArray["stats"]["reverseGearActive"] = reverseGearActive;
+  myArray["stats"]["camera"] = camnames[currentCamera];
   myArray["stats"]["uptime"] = millis() / 1000;
   myArray["stats"]["ram"] = (int)ESP.getFreeHeap();
 
@@ -284,11 +280,9 @@ String getOutputStates()
   myArray["settings"]["frontCamTimeout"] = frontCamTimeout;
   myArray["settings"]["trailerCamMode"] = trailerCamMode;
   myArray["settings"]["serialOutput"] = serialOutput;
-  myArray["settings"]["souIP"] = souIP;
   myArray["settings"]["loopDelay"] = loopDelay;
   myArray["settings"]["canSpeed"] = canSpeed;
   myArray["settings"]["canInterface"] = canInterface;
-  myArray["settings"]["rearCamSensor"] = rearCamSensor;
 
   // sending checkboxes
   myArray["checkboxes"]["autoSwitch"] = autoSwitch;
@@ -322,16 +316,12 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
       serialOutput = atoi(webmsg["serialOutput"]);
     if (webmsg.hasOwnProperty("trailerCamMode"))
       trailerCamMode = atoi(webmsg["trailerCamMode"]);
-    if (webmsg.hasOwnProperty("souIP"))
-      souIP = webmsg["souIP"];
     if (webmsg.hasOwnProperty("loopDelay"))
       loopDelay = atoi(webmsg["loopDelay"]);
     if (webmsg.hasOwnProperty("canInterface"))
       canInterface = atoi(webmsg["canInterface"]);
     if (webmsg.hasOwnProperty("canSpeed"))
       canSpeed = atoi(webmsg["canSpeed"]);
-    if (webmsg.hasOwnProperty("rearCamSensor"))
-      rearCamSensor = atoi(webmsg["rearCamSensor"]);
     // checkboxes
     if (webmsg.hasOwnProperty("autoSwitch"))
       autoSwitch = webmsg["autoSwitch"];
@@ -383,10 +373,8 @@ void readEEPROMSettings()
   autoSwitch = preferences.getBool("autoSwitch", true);
   canInterface = preferences.getInt("canInterface", 0);
   canSpeed = preferences.getInt("canSpeed", 500);
-  trailerCamMode = preferences.getInt("trailerCamMode", 0);
-  souIP = preferences.getString("souIP", "192.168.1.12");
+  trailerCamMode = preferences.getInt("trailerCamMode", 1);
   loopDelay = preferences.getInt("loopDelay", 10);
-  rearCamSensor = preferences.getInt("rearCamSensor", 10);
 }
 
 void writeEEPROMSettings()
@@ -397,9 +385,7 @@ void writeEEPROMSettings()
   preferences.putInt("canInterface", canInterface);
   preferences.putInt("canSpeed", canSpeed);
   preferences.putInt("trailerCamMode", trailerCamMode);
-  preferences.putString("souIP", souIP);
   preferences.putInt("loopDelay", loopDelay);
-  preferences.putInt("rearCamSensor", rearCamSensor);
 }
 
 void setup()
@@ -424,7 +410,7 @@ void setup()
   pinMode(pinD, OUTPUT);
 
   // BackCameraOn();
-  EnableCamera(rearCamera);
+  EnableCamera(noCamera);
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
 
@@ -463,21 +449,21 @@ void Displaystats()
 
   videoOut.setTextColor(0xFF);
 
-  videoOut.print(" Rear cam: ");
-  if (rearCamActive)
+  videoOut.print(" Reverse gear: ");
+  if (reverseGearActive)
     videoOut.println("on");
   else
     videoOut.println("off");
-  videoOut.print(" Trailer cam: ");
+  videoOut.print(" Rear mode: ");
 
-  if (trailCamActive)
-    videoOut.println("on");
+  if (trailerCamMode == 1)
+    videoOut.println("Rear");
   else
-    videoOut.println("off");
+    videoOut.println("Trailer");
 
   videoOut.printf(" CAN bus mode: %d\n", canInterface);
 
-  videoOut.printf(" Camera: %s\n", camnames[currentCamera - 1]);
+  videoOut.printf(" Camera: %s\n", camnames[currentCamera]);
 
   videoOut.printf(" Uptime: %ds\n", millis() / 1000);
   videoOut.printf(" RAM: %d\n", ESP.getFreeHeap());
@@ -485,44 +471,52 @@ void Displaystats()
 
 void loop()
 {
-  can_message_t rx_frame;
-  if (can_receive(&rx_frame, pdMS_TO_TICKS(loopDelay)) == ESP_OK)
+  sync = millis();
+  if (serialOutput == 1) // Serial ping
   {
-    if (serialOutput == 3) // CAN sniffing mode
-    {
-      SerialPrintf("timestamp,0x%08x,", rx_frame.identifier);
-      SerialPrintf("%d,", rx_frame.data_length_code);
-      SerialPrintf("%d", rx_frame.flags);
-      for (int i = 0; i < 7; i++)
-      {
-        SerialPrintf("%02x,", rx_frame.data[i]);
-      }
-      SerialPrintf("%02x", rx_frame.data[7]);
-      SerialPrintf("\n");
-    }
+    SerialPrintf("Current millis:%d\n", sync);
   }
-  if (static_cast<can_mode_t>(canInterface) == CAN_MODE_LISTEN_ONLY)
-    delay(loopDelay);
-
-  rearCamActive = !digitalRead(reverseInput);
+  while (sync + loopDelay > millis())
+  {
+    can_message_t rx_frame;
+    if (can_receive(&rx_frame, pdMS_TO_TICKS(loopDelay)) == ESP_OK)
+    {
+      if (serialOutput == 3) // CAN sniffing mode
+      {
+        SerialPrintf("timestamp,0x%08x,", rx_frame.identifier);
+        SerialPrintf("%d,", rx_frame.data_length_code);
+        SerialPrintf("%d", rx_frame.flags);
+        for (int i = 0; i < 7; i++)
+        {
+          SerialPrintf("%02x,", rx_frame.data[i]);
+        }
+        SerialPrintf("%02x", rx_frame.data[7]);
+        SerialPrintf("\n");
+      }
+    }
+    // if (static_cast<can_mode_t>(canInterface) == CAN_MODE_LISTEN_ONLY)
+    //   delay(loopDelay);
+  }
+  reverseGearActive = !digitalRead(reverseInput);
 
   if (autoSwitch)
   {
     // Condition 1: rear camera activated
-    if (rearCamActive)
+    if (reverseGearActive)
     {
       BackCameraOn();
       frontCameraAutoTimer = millis();
     }
     // Condition 2: rear camera deactivated, enable auto front camera
-    if (!rearCamActive && currentCamera != frontCamera && frontCameraAutoTimer > 0)
+    if (!reverseGearActive && currentCamera != frontCamera && frontCameraAutoTimer > 0)
     {
       frontCameraAutoTimer = millis();
       FrontCameraOn();
     }
     // Condition 3: disable auto front camera after threshold
-    if (currentCamera == frontCamera && frontCameraAutoTimer > 0 && millis() - frontCameraAutoTimer > frontCamTimeout)
-      BackCameraOn();
+    if ((currentCamera == frontCamera && frontCameraAutoTimer > 0 && millis() - frontCameraAutoTimer > frontCamTimeout) ||
+        (!reverseGearActive && frontCameraAutoTimer == 0))
+      AllCamerasOff();
   }
   /*
     if (digitalRead(buttonPin) == ON)

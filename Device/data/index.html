@@ -12,7 +12,7 @@
 
 <body>
   <div class="topnav">
-    <h1>Car camera controller - test outputs</h1>
+    <h1>Car camera controller</h1>
   </div>
   <div class="content">
     <div class="card-grid">
@@ -20,6 +20,7 @@
         <p class="card-title">Settings</p>
         <label for="currentCamera">Camera:</label>
         <select id="currentCamera" onchange="enterValue(this)">
+          <option value="0">Off</option>
           <option value="1">Rear</option>
           <option value="2">Front</option>
           <option value="3">Internal display</option>
@@ -35,27 +36,22 @@
         <br>
         <label for="trailerCamMode">Trailer cam mode:</label>
         <select id="trailerCamMode" onchange="enterValue(this)">
-          <option value="0">Auto</option>
-          <option value="1">Off</option>
-          <option value="2">On</option>
+          <option value="1">Rear cam</option>
+          <option value="2">Trailer cam</option>
         </select>
         <br>
         <label for="serialOutput">Serial output:</label>
         <select id="serialOutput" onchange="enterValue(this)">
           <option value="0">Off</option>
-          <option value="1">Slow frames</option>
-          <option value="2">Fast frames</option>
+          <option value="1">Serial ping</option>
           <option value="3">CANbus dump</option>
         </select>
         <br>
         <label for="loopDelay">Loop delay:</label>
         <select id="loopDelay" onchange="enterValue(this)">
-          <option value="1">1</option>
-          <option value="5">5</option>
-          <option value="10">10</option>
-          <option value="20">20</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
+          <option value="250">250ms</option>
+          <option value="500">500ms</option>
+          <option value="1000">1s</option>
         </select>
         <br>
         <label for="canInterface">CAN bus mode:</label>
@@ -77,13 +73,6 @@
           <option value="1000">1000 Kbit/s</option>
         </select>
         <br>
-        <label for="souIP">SOU IP:</label>
-        <input type="text" id="souIP" onchange="enterValue(this)">
-        <br>
-        <label for="rearCamSensor">Rear cam:</label>
-        <input id="rearCamSensor" type="range" min="10" max="50" value="10" onchange="enterValue(this)"
-          oninput="this.nextElementSibling.value = this.value">
-        <output>10</output>
       </div>
 
       <div class="card">
@@ -108,8 +97,7 @@
         <p class="card-title">Stats:</p>
         <p class="state">Wifi: <span id="ssid"></span></p>
         <p class="state">Version: <span id="softwareVersion"></span></p>
-        <p class="state">Rear cam active: <span id="rearCamActive"></span></p>
-        <p class="state">Trail cam active: <span id="trailCamActive"></span></p>
+        <p class="state">Reverse gear: <span id="reverseGearActive"></span></p>
         <p class="state">Current camera: <span id="camera"></span></p>
         <p class="state">Free RAM: <span id="ram"></span></p>
         <p class="state">Uptime, s: <span id="uptime"></span></p>
