@@ -44,6 +44,9 @@
 #define intCamera 3
 #define trailCamera 4
 
+#define rearCamModeRear 1
+#define rearCamModeTrailer 2
+
 const char *ssid = WIFISSID_2;
 const char *password = WIFIPASS_2;
 const char *softwareVersion = "0.8";
@@ -67,7 +70,7 @@ WiFiUDP Udp;
 Preferences preferences;
 
 int frontCamTimeout; // after the rear camera the front one turns on for 10s
-int trailerCamMode;  // 1 - Off (Rear camera), 2 - On (Trailer camera)
+int rearCamMode;  // 1 - Off (Rear camera), 2 - On (Trailer camera)
 int serialOutput;    // 0 - Off, 1 - Serial ping, 3 - CANBUS dump
 int loopDelay;
 bool autoSwitch;            // when true, camera auto-switching logic applies
@@ -197,7 +200,7 @@ void BackCameraOn()
 {
   if (reverseGearActive)
   {
-    if ((trailerCamMode == 2))
+    if ((rearCamMode == rearCamModeTrailer))
     {
       EnableCamera(trailCamera);
     }
@@ -278,7 +281,7 @@ String getOutputStates()
   // sending values
   myArray["settings"]["currentCamera"] = currentCamera;
   myArray["settings"]["frontCamTimeout"] = frontCamTimeout;
-  myArray["settings"]["trailerCamMode"] = trailerCamMode;
+  myArray["settings"]["rearCamMode"] = rearCamMode;
   myArray["settings"]["serialOutput"] = serialOutput;
   myArray["settings"]["loopDelay"] = loopDelay;
   myArray["settings"]["canSpeed"] = canSpeed;
@@ -314,8 +317,8 @@ void handleWebSocketMessage(void *arg, uint8_t *data, size_t len)
       frontCamTimeout = atoi(webmsg["frontCamTimeout"]);
     if (webmsg.hasOwnProperty("serialOutput"))
       serialOutput = atoi(webmsg["serialOutput"]);
-    if (webmsg.hasOwnProperty("trailerCamMode"))
-      trailerCamMode = atoi(webmsg["trailerCamMode"]);
+    if (webmsg.hasOwnProperty("rearCamMode"))
+      rearCamMode = atoi(webmsg["rearCamMode"]);
     if (webmsg.hasOwnProperty("loopDelay"))
       loopDelay = atoi(webmsg["loopDelay"]);
     if (webmsg.hasOwnProperty("canInterface"))
@@ -373,7 +376,7 @@ void readEEPROMSettings()
   autoSwitch = preferences.getBool("autoSwitch", true);
   canInterface = preferences.getInt("canInterface", 0);
   canSpeed = preferences.getInt("canSpeed", 500);
-  trailerCamMode = preferences.getInt("trailerCamMode", 1);
+  rearCamMode = preferences.getInt("rearCamMode", 1);
   loopDelay = preferences.getInt("loopDelay", 10);
 }
 
@@ -384,7 +387,7 @@ void writeEEPROMSettings()
   preferences.putBool("autoSwitch", autoSwitch);
   preferences.putInt("canInterface", canInterface);
   preferences.putInt("canSpeed", canSpeed);
-  preferences.putInt("trailerCamMode", trailerCamMode);
+  preferences.putInt("rearCamMode", rearCamMode);
   preferences.putInt("loopDelay", loopDelay);
 }
 
@@ -456,7 +459,7 @@ void Displaystats()
     videoOut.println("off");
   videoOut.print(" Rear mode: ");
 
-  if (trailerCamMode == 1)
+  if (rearCamMode == rearCamModeRear)
     videoOut.println("Rear");
   else
     videoOut.println("Trailer");
