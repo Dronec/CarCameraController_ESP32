@@ -29,7 +29,6 @@
 #define ON HIGH
 #define OFF LOW
 
-#define longClick 1500   // long button click 1.5s
 #define reverseInput 13  // reverse signal input
 #define reverseOutput 27 // reverse signal output
 
@@ -47,9 +46,9 @@
 #define rearCamModeRear 1
 #define rearCamModeTrailer 2
 
-const char *ssid = WIFISSID_2;
-const char *password = WIFIPASS_2;
-const char *softwareVersion = "0.8";
+const char *ssid = WIFISSID_M;
+const char *password = WIFIPASS_M;
+const char *softwareVersion = "1.0";
 
 const char *camnames[5] = {"Off", "Rear", "Front",
                            "Internal", "Trailer"};
@@ -70,7 +69,7 @@ WiFiUDP Udp;
 Preferences preferences;
 
 int frontCamTimeout; // after the rear camera the front one turns on for 10s
-int rearCamMode;  // 1 - Off (Rear camera), 2 - On (Trailer camera)
+int rearCamMode;     // 1 - Off (Rear camera), 2 - On (Trailer camera)
 int serialOutput;    // 0 - Off, 1 - Serial ping, 3 - CANBUS dump
 int loopDelay;
 bool autoSwitch;            // when true, camera auto-switching logic applies
@@ -88,6 +87,7 @@ int canSpeed;
 int currentCamera = 0; // 0 - off, 1 - rear, 2 - front, 3 - internal, 4 - trailer;
 
 bool WifiStatus = false;
+bool manualFrontCamTrigger = false;
 
 // Initialize LittleFS
 void initSPIFFS()
@@ -170,7 +170,7 @@ int SerialPrintf(char *format, ...)
 {
   int ret;
   va_list arg;
-  char loc_buf[64];
+  char loc_buf[128];
   char *temp = loc_buf;
   va_start(arg, format);
   ret = vsnprintf(temp, sizeof(loc_buf), format, arg);
@@ -267,6 +267,28 @@ void EnableCamera(uint cameraN)
   currentCamera = cameraN;
 }
 
+char *millisToTime(unsigned long currentMillis)
+{
+  unsigned long seconds = currentMillis / 1000;
+  unsigned long minutes = seconds / 60;
+  unsigned long hours = minutes / 60;
+  unsigned long days = hours / 24;
+  currentMillis %= 1000;
+  seconds %= 60;
+  minutes %= 60;
+  hours %= 24;
+  static char buffer[50];
+  if (days == 0 && hours == 0 && minutes == 0)
+    sprintf(buffer, "%lu sec ", seconds);
+  else if (days == 0 && hours == 0 && minutes > 0)
+    sprintf(buffer, "%lu min %lu sec ", minutes, seconds);
+  else if (days == 0 && hours > 0)
+    sprintf(buffer, "%lu h %lu m %lu s ", hours, minutes, seconds);
+  else
+    sprintf(buffer, "%lud %luh %lum %lus ", days, hours, minutes, seconds);
+  return buffer;
+}
+
 String getOutputStates()
 {
   JSONVar myArray;
@@ -275,7 +297,7 @@ String getOutputStates()
   myArray["stats"]["softwareVersion"] = softwareVersion;
   myArray["stats"]["reverseGearActive"] = reverseGearActive;
   myArray["stats"]["camera"] = camnames[currentCamera];
-  myArray["stats"]["uptime"] = millis() / 1000;
+  myArray["stats"]["uptime"] = millisToTime(millis());
   myArray["stats"]["ram"] = (int)ESP.getFreeHeap();
 
   // sending values
@@ -372,7 +394,7 @@ void initWebSocket()
 void readEEPROMSettings()
 {
   frontCamTimeout = preferences.getInt("frontCamTimeout", 10000);
-  serialOutput = preferences.getInt("serialOutput", 0);
+  serialOutput = 0; // serialOutput = preferences.getInt("serialOutput", 0);
   autoSwitch = preferences.getBool("autoSwitch", true);
   canInterface = preferences.getInt("canInterface", 0);
   canSpeed = preferences.getInt("canSpeed", 500);
@@ -486,16 +508,11 @@ void loop()
     {
       if (serialOutput == 3) // CAN sniffing mode
       {
-        SerialPrintf("timestamp,0x%08x,", rx_frame.identifier);
-        SerialPrintf("%d,", rx_frame.data_length_code);
-        SerialPrintf("%d", rx_frame.flags);
-        for (int i = 0; i < 7; i++)
-        {
-          SerialPrintf("%02x,", rx_frame.data[i]);
-        }
-        SerialPrintf("%02x", rx_frame.data[7]);
-        SerialPrintf("\n");
+        SerialPrintf("#ts#,0x%04x,%d,%d,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x\n", rx_frame.identifier, rx_frame.data_length_code, rx_frame.flags, rx_frame.data[0], rx_frame.data[1], rx_frame.data[2], rx_frame.data[3], rx_frame.data[4], rx_frame.data[5], rx_frame.data[6], rx_frame.data[7]);
       }
+      // Front cam manual trigger (DUAL button in the car)
+      if (rx_frame.identifier == 0x132 && rx_frame.data[1] == 0x10)
+        manualFrontCamTrigger = true;
     }
     // if (static_cast<can_mode_t>(canInterface) == CAN_MODE_LISTEN_ONLY)
     //   delay(loopDelay);
@@ -511,10 +528,11 @@ void loop()
       frontCameraAutoTimer = millis();
     }
     // Condition 2: rear camera deactivated, enable auto front camera
-    if (!reverseGearActive && currentCamera != frontCamera && frontCameraAutoTimer > 0)
+    if ((!reverseGearActive) && ((currentCamera != frontCamera && frontCameraAutoTimer > 0) || manualFrontCamTrigger))
     {
       frontCameraAutoTimer = millis();
       FrontCameraOn();
+      manualFrontCamTrigger = false;
     }
     // Condition 3: disable auto front camera after threshold
     if ((currentCamera == frontCamera && frontCameraAutoTimer > 0 && millis() - frontCameraAutoTimer > frontCamTimeout) ||
