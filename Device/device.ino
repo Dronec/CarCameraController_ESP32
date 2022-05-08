@@ -46,9 +46,12 @@
 #define rearCamModeRear 1
 #define rearCamModeTrailer 2
 
+#define minDoubleClickThreshold 200
+#define maxDoubleClickThreshold 600
+
 const char *ssid = WIFISSID_M;
 const char *password = WIFIPASS_M;
-const char *softwareVersion = "1.0";
+const char *softwareVersion = "1.03";
 
 const char *camnames[5] = {"Off", "Rear", "Front",
                            "Internal", "Trailer"};
@@ -78,8 +81,9 @@ bool serialOverUDP = false; // when true, the data get sent to a PC
 unsigned long sync = 0;
 unsigned long frontCameraAutoTimer = 0; // Used for intelligent switching between rear and front cameras
 
-int clickType = 0;
-int clickLength = 0;
+unsigned long singleClickTime = 0;
+byte canButtonValue = 0;
+
 bool reverseGearActive;
 int canInterface;
 int canSpeed;
@@ -87,7 +91,7 @@ int canSpeed;
 int currentCamera = 0; // 0 - off, 1 - rear, 2 - front, 3 - internal, 4 - trailer;
 
 bool WifiStatus = false;
-bool manualFrontCamTrigger = false;
+bool dualButtonDoubleClicked = false;
 
 // Initialize LittleFS
 void initSPIFFS()
@@ -216,15 +220,6 @@ void AllCamerasOff()
   EnableCamera(noCamera);
   frontCameraAutoTimer = 0;
 }
-/*
-void ToggleCamera()
-{
-  if (currentCamera == 1)
-    FrontCameraOn();
-  else
-    BackCameraOn();
-}
-*/
 void EnableCamera(uint cameraN)
 {
   switch (cameraN)
@@ -510,64 +505,88 @@ void loop()
       {
         SerialPrintf("#ts#,0x%04x,%d,%d,%02x,%02x,%02x,%02x,%02x,%02x,%02x,%02x\n", rx_frame.identifier, rx_frame.data_length_code, rx_frame.flags, rx_frame.data[0], rx_frame.data[1], rx_frame.data[2], rx_frame.data[3], rx_frame.data[4], rx_frame.data[5], rx_frame.data[6], rx_frame.data[7]);
       }
-      // Front cam manual trigger (DUAL button in the car)
-      if (rx_frame.identifier == 0x132 && rx_frame.data[1] == 0x10)
-        manualFrontCamTrigger = true;
+      //(DUAL button in the car)
+      // Step 1: No buttons pressed, reading current value of DUAL button (0x14 or 0x15)
+      if (rx_frame.identifier == 0x132 && rx_frame.data[1] == 0x00)
+        canButtonValue = rx_frame.data[3];
+      // Step 2: Buttons pressed, check if byte[3] changed (which means that DUAL button pressed) (0x14 or 0x15)
+      if (rx_frame.identifier == 0x132 && rx_frame.data[1] == 0x10 && canButtonValue != rx_frame.data[3])
+      {
+        if (singleClickTime == 0)
+          singleClickTime = millis();
+        else if (millis() - singleClickTime > minDoubleClickThreshold && millis() - singleClickTime < maxDoubleClickThreshold)
+        {
+          dualButtonDoubleClicked = true;
+          singleClickTime = 0;
+        }
+      }
     }
     // if (static_cast<can_mode_t>(canInterface) == CAN_MODE_LISTEN_ONLY)
     //   delay(loopDelay);
+    if (millis() - singleClickTime > maxDoubleClickThreshold)
+      singleClickTime = 0;
   }
+
   reverseGearActive = !digitalRead(reverseInput);
 
   if (autoSwitch)
   {
-    // Condition 1: rear camera activated
+    // Condition 1: Reverse gear is active, activating rear or trailer camera activated
     if (reverseGearActive)
     {
+      // If DUAL double-clicked when Reverse gear is on, it switches rear/trailer modes
+      if (dualButtonDoubleClicked)
+      {
+        dualButtonDoubleClicked = false;
+        if (rearCamMode == rearCamModeRear)
+          rearCamMode = rearCamModeTrailer;
+        else
+          rearCamMode = rearCamModeRear;
+        writeEEPROMSettings();
+      }
       BackCameraOn();
       frontCameraAutoTimer = millis();
     }
-    // Condition 2: rear camera deactivated, enable auto front camera
-    if ((!reverseGearActive) && ((currentCamera != frontCamera && frontCameraAutoTimer > 0) || manualFrontCamTrigger))
+    // Condition 2:  Reverse gear turned off, enable auto front camera
+    if ((!reverseGearActive) && ((currentCamera != frontCamera && frontCameraAutoTimer > 0)))
     {
       frontCameraAutoTimer = millis();
       FrontCameraOn();
-      manualFrontCamTrigger = false;
     }
     // Condition 3: disable auto front camera after threshold
-    if ((currentCamera == frontCamera && frontCameraAutoTimer > 0 && millis() - frontCameraAutoTimer > frontCamTimeout) ||
-        (!reverseGearActive && frontCameraAutoTimer == 0))
+    if (currentCamera == frontCamera && frontCameraAutoTimer > 0 && millis() - frontCameraAutoTimer > frontCamTimeout)
+      //|| I don't remember why I made this condition
+      //    (!reverseGearActive && frontCameraAutoTimer == 0))
       AllCamerasOff();
-  }
-  /*
-    if (digitalRead(buttonPin) == ON)
+    // Condition 4: DUAL double-clicked, switching between cameras
+    if (dualButtonDoubleClicked)
     {
-
-      buttonTimer = millis();
-      while (millis() - buttonTimer < longClick && digitalRead(buttonPin) == ON)
+      dualButtonDoubleClicked = false; // dropping double-click if there was auto front mode
+      if (frontCameraAutoTimer == 0)
       {
-        delay(50);
-      };
-      if (millis() - buttonTimer >= longClick)
-      {
-        clickType = 2;
-        clickLength = millis() - buttonTimer;
-        ClickExternalButton();
+        switch (currentCamera)
+        {
+        case noCamera:
+          currentCamera = frontCamera;
+          break;
+        case frontCamera:
+          currentCamera = rearCamera;
+          break;
+        case rearCamera:
+          currentCamera = trailCamera;
+          break;
+        case trailCamera:
+          currentCamera = intCamera;
+          break;
+        case intCamera:
+          currentCamera = noCamera;
+          break;
+        }
+        EnableCamera(currentCamera);
       }
-      else
-      {
-        clickType = 1;
-        clickLength = millis() - buttonTimer;
-        frontCameraAutoTimer = 0;
-        ToggleCamera();
-      }
-      // waiting for releasing the button
-      while (digitalRead(buttonPin) == ON)
-      {
-        delay(50);
-      };
     }
-  */
+  }
+
   if (WiFi.status() == WL_CONNECTED && WifiStatus == false)
   {
     WifiStatus = true;
